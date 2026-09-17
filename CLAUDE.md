@@ -5,21 +5,39 @@
 - **Language:** plain ES5-compatible JavaScript in IIFE modules on a `window.KP`
   namespace. No framework, no bundler, no runtime dependency, no network call.
 - **Markup/styles:** static HTML + one hand-written CSS file.
-- **Storage:** `localStorage` only, always behind `js/storage.js`.
-- **Audio/graphics:** WebAudio, canvas and inline SVG. No asset files.
+- **Storage:** `localStorage` for progress, always behind `js/storage.js`;
+  `IndexedDB` for the child's photos, always behind `js/photos.js`. Both fall
+  back to memory rather than failing.
+- **Audio/graphics:** WebAudio, canvas and inline SVG. The only asset files in
+  the project are the app icons in `icons/` (see below).
+- **Offline:** `sw.js` at the repo root precaches the shell under a versioned
+  cache name and serves it cache-first. It is registered from `index.html` and
+  skipped on `file://`, so offline is always an upgrade and never a requirement.
 
 ## Commands
 
 - **Run:** open `index.html`, or `python3 -m http.server 8000` and browse to
   <http://localhost:8000>.
 - **Build:** none, by design.
-- **Test / lint:** `node --check` on each file in `js/` — there is no test runner
-  and no linter in this repo; behaviour is verified in a browser.
+- **Test / lint:** `node --check` on each file in `js/` and on `sw.js` — there is
+  no test runner and no linter in this repo; behaviour is verified in a browser.
+- **Deploy:** GitHub Pages from `master` at the repo root, served under
+  `/kid-puzzle/`. Every path in the project must stay relative. See the Deploy
+  section of `README.md`, including the `CACHE_VERSION` bump in `sw.js` that a
+  release needs.
 
 ## Overrides of the shared engineering standards
 
 These are deliberate, and follow from the brief (a dependency-free static toy):
 
+- **One asset folder, `icons/`.** An installed PWA has to hand the operating
+  system real PNG files; they cannot be drawn at runtime the way the rest of the
+  artwork is. The source SVGs ship beside the PNGs and `README.md` records the
+  command that redraws them, so the folder stays generated rather than binary
+  data nobody can reproduce.
+- **One display string outside `js/i18n.js`:** the app name in
+  `manifest.webmanifest`. The operating system reads it before any JavaScript
+  runs, so it cannot come from the dictionary; it is bilingual there instead.
 - **No `src/types|interfaces|enums` folders.** The project is plain JavaScript
   with no type system; shared constants live beside the code that owns them
   (`KP.art`, `KP.storage.GAME_IDS`).
