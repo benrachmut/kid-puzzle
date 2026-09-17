@@ -89,7 +89,11 @@
 
   function setEnabled(value) {
     enabled = !!value;
-    if (enabled) unlock();
+    /* Deliberately does not create the context: constructing one outside a user
+       gesture starts it suspended and makes the browser log an autoplay
+       warning. An existing context is still resumed when sound is switched back
+       on; the first one is built by the gesture handler in the app shell. */
+    if (enabled && ctx) unlock();
   }
 
   KP.audio = { play: play, unlock: unlock, setEnabled: setEnabled, isEnabled: function () { return enabled; } };
