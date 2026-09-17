@@ -13,10 +13,21 @@
   var i18n = KP.i18n;
 
   var GAME_ORDER = ['jigsaw', 'match', 'memory', 'slide', 'sequence'];
+  /* A photo track is an ordinary game as far as stars and unlocking go; it just
+     borrows another game's board and feeds it a photo instead of a drawn scene.
+     Keeping the progress id apart from the module id is what lets the two tracks
+     reuse the jigsaw and slide ladders without sharing their stars. */
+  var PHOTO_TRACKS = { photoJigsaw: 'jigsaw', photoSlide: 'slide' };
+  var PHOTO_TRACK_ORDER = ['photoJigsaw', 'photoSlide'];
   var HOME_PREVIEW_SIZE = 160;
 
   var progress = KP.storage.load();
-  var current = { gameId: null, levelIndex: 0, instance: null };
+  var current = { gameId: null, levelIndex: 0, instance: null, photo: null };
+  /* Bumped on every teardown, so a photo that finishes decoding after the child
+     has already walked away is dropped instead of mounted into a dead screen. */
+  var mountToken = 0;
+  /* Guards the delete confirmation against the double tap every child produces. */
+  var deleting = false;
 
   var dom = {};
 
@@ -31,10 +42,19 @@
     dom.langIcon = $('btn-lang-icon');
     dom.screens = {
       home: $('screen-home'),
+      photos: $('screen-photos'),
+      photoGame: $('screen-photo-game'),
       levels: $('screen-levels'),
       game: $('screen-game')
     };
     dom.homeGrid = $('home-grid');
+    dom.photoGrid = $('photo-grid');
+    dom.photoGameGrid = $('photo-game-grid');
+    dom.photoWorking = $('photo-working');
+    dom.photoError = $('photo-error');
+    dom.photoHint = $('photo-hint');
+    dom.takeInput = $('input-take');
+    dom.pickInput = $('input-pick');
     dom.levelGrid = $('level-grid');
     dom.gameMount = $('game-mount');
     dom.overlay = $('overlay-win');
@@ -44,6 +64,15 @@
     dom.home = $('btn-home');
   }
 
+  /** The board a track plays on: its own module, or the one it borrows. */
+  function moduleFor(gameId) {
+    return KP.games[PHOTO_TRACKS[gameId] || gameId];
+  }
+
+  function isPhotoTrack(gameId) {
+    return Object.prototype.hasOwnProperty.call(PHOTO_TRACKS, gameId);
+  }
+
   function starsFor(gameId, levelIndex) {
     var levels = progress.stars[gameId] || {};
     var value = levels[levelIndex];
@@ -51,7 +80,7 @@
   }
 
   function totalStars(gameId) {
-    var module = KP.games[gameId];
+    var module = moduleFor(gameId);
     var sum = 0;
     for (var i = 0; i < module.levelCount; i++) sum += starsFor(gameId, i);
     return sum;
@@ -141,7 +170,7 @@
   function renderHome() {
     util.clear(dom.homeGrid);
     GAME_ORDER.forEach(function (gameId) {
-      var module = KP.games[gameId];
+      var module = moduleFor(gameId);
       var card = util.el('button', 'btn game-card', { type: 'button' });
       card.setAttribute('aria-label', i18n.t('game.' + gameId));
       card.appendChild(homeArtwork(gameId));
@@ -157,12 +186,223 @@
       });
       dom.homeGrid.appendChild(card);
     });
+    dom.homeGrid.appendChild(photoCard());
+  }
+
+  /* ---------- the child's own pictures ---------- */
+
+  /**
+   * The camera card. It carries no star row on purpose: it is a doorway to the
+   * two photo tracks rather than a game with a ladder of its own.
+   */
+  function photoCard() {
+    var card = util.el('button', 'btn game-card', { type: 'button' });
+    var art = util.el('div', 'game-card__art game-card__art--single');
+    var glyph = util.el('div', 'photo-card__glyph');
+
+    card.setAttribute('aria-label', i18n.t('game.photos'));
+    glyph.innerHTML = KP.art.icon('camera');
+    art.appendChild(glyph);
+    card.appendChild(art);
+
+    var name = util.el('span', 'game-card__name');
+    name.textContent = i18n.t('game.photos');
+    card.appendChild(name);
+
+    card.addEventListener('click', function () {
+      KP.audio.play('click');
+      openPhotos();
+    });
+    return card;
+  }
+
+  function setNote(node, visible) {
+    node.hidden = !visible;
+  }
+
+  /**
+   * One saved picture: tap it to play, tap the bin to be asked once.
+   * The confirmation is a pair of big coloured buttons rather than a dialog,
+   * because a 6-year-old deletes by accident and cannot read "are you sure".
+   */
+  function photoTile(record) {
+    var tile = util.el('div', 'photo-tile');
+
+    var open = util.el('button', 'photo-tile__open', {
+      type: 'button', 'data-i18n-aria': 'photos.item'
+    });
+    var img = util.el('img', '', { alt: '' });
+    img.src = record.thumb;
+    open.appendChild(img);
+
+    var bin = util.el('button', 'photo-tile__del', {
+      type: 'button', 'data-i18n-aria': 'photos.delete'
+    });
+    bin.innerHTML = KP.art.icon('trash');
+
+    var confirm = util.el('div', 'photo-tile__confirm');
+    var yes = util.el('button', 'photo-tile__answer photo-tile__answer--yes', {
+      type: 'button', 'data-i18n-aria': 'photos.deleteYes'
+    });
+    var no = util.el('button', 'photo-tile__answer photo-tile__answer--no', {
+      type: 'button', 'data-i18n-aria': 'photos.deleteNo'
+    });
+    yes.innerHTML = KP.art.icon('yes');
+    no.innerHTML = KP.art.icon('no');
+    confirm.appendChild(yes);
+    confirm.appendChild(no);
+
+    open.addEventListener('click', function () {
+      KP.audio.play('click');
+      openPhotoGames(record);
+    });
+    bin.addEventListener('click', function () {
+      KP.audio.play('click');
+      closeConfirmations();
+      tile.classList.add('is-confirming');
+    });
+    no.addEventListener('click', function () {
+      KP.audio.play('click');
+      tile.classList.remove('is-confirming');
+    });
+    yes.addEventListener('click', function () {
+      /* Two taps on "yes" must not run two deletes and two re-renders. */
+      if (deleting) return;
+      deleting = true;
+      KP.audio.play('drop');
+      KP.photos.remove(record.id).then(function () {
+        deleting = false;
+        renderPhotoGrid();
+      });
+    });
+
+    tile.appendChild(open);
+    tile.appendChild(bin);
+    tile.appendChild(confirm);
+    return tile;
+  }
+
+  function closeConfirmations() {
+    var open = dom.photoGrid.querySelectorAll('.is-confirming');
+    for (var i = 0; i < open.length; i++) open[i].classList.remove('is-confirming');
+  }
+
+  function renderPhotoGrid() {
+    return KP.photos.list().then(function (rows) {
+      util.clear(dom.photoGrid);
+      /* Only worth saying once storage has actually been tried and found wanting. */
+      setNote(dom.photoHint, !KP.photos.isPersistent());
+
+      if (!rows.length) {
+        var empty = util.el('p', 'photo-grid__empty', { 'data-i18n': 'photos.empty' });
+        empty.textContent = i18n.t('photos.empty');
+        dom.photoGrid.appendChild(empty);
+        return;
+      }
+      rows.forEach(function (record) { dom.photoGrid.appendChild(photoTile(record)); });
+      i18n.apply(dom.photoGrid);
+    });
+  }
+
+  /**
+   * A file arriving from the camera or the gallery.
+   * Every failure a child can produce - cancelling the picker, an iPhone HEIC
+   * this browser cannot read, a file that is not a picture at all - ends as the
+   * same friendly line rather than as a broken screen.
+   */
+  function handlePicked(input) {
+    var file = input.files && input.files[0];
+    /* Clearing the field matters: choosing the same picture twice in a row fires
+       no change event otherwise, and the second attempt would look broken. */
+    input.value = '';
+    if (!file) return;
+
+    setNote(dom.photoError, false);
+    setNote(dom.photoWorking, true);
+
+    KP.photos.decode(file).then(function (canvas) {
+      return canvas ? KP.photos.save(canvas) : null;
+    }).then(function (record) {
+      setNote(dom.photoWorking, false);
+      if (!record) {
+        setNote(dom.photoError, true);
+        KP.audio.play('wrong');
+        return null;
+      }
+      KP.audio.play('correct');
+      return renderPhotoGrid();
+    });
+  }
+
+  /**
+   * Shows the chosen picture cut the way each track will cut it - four jigsaw
+   * pieces, or a sliding grid with its gap - so the choice reads without words.
+   */
+  function trackPreview(trackId, record) {
+    var cols = trackId === 'photoSlide' ? 3 : 2;
+    var total = cols * cols;
+    var preview = util.el('div', 'photo-preview');
+    preview.style.setProperty('grid-template-columns', 'repeat(' + cols + ', 1fr)');
+    preview.style.setProperty('--thumb', 'url(' + record.thumb + ')');
+    preview.style.setProperty('--zoom', (cols * 100) + '%');
+
+    for (var i = 0; i < total; i++) {
+      /* The sliding puzzle always has exactly one empty square. */
+      var isGap = trackId === 'photoSlide' && i === total - 1;
+      var cell = util.el('span', isGap ? 'is-gap' : '');
+      cell.style.setProperty('--px', ((i % cols) / (cols - 1) * 100) + '%');
+      cell.style.setProperty('--py', (Math.floor(i / cols) / (cols - 1) * 100) + '%');
+      preview.appendChild(cell);
+    }
+    return preview;
+  }
+
+  function renderPhotoGames() {
+    util.clear(dom.photoGameGrid);
+    if (!current.photo) return;
+
+    PHOTO_TRACK_ORDER.forEach(function (trackId) {
+      var module = moduleFor(trackId);
+      var card = util.el('button', 'btn game-card', { type: 'button' });
+      var art = util.el('div', 'game-card__art game-card__art--single');
+
+      card.setAttribute('aria-label', i18n.t('game.' + trackId));
+      art.appendChild(trackPreview(trackId, current.photo));
+      card.appendChild(art);
+
+      var name = util.el('span', 'game-card__name');
+      name.textContent = i18n.t('game.' + trackId);
+      card.appendChild(name);
+      card.appendChild(starRow(totalStars(trackId), module.levelCount * 3));
+
+      card.addEventListener('click', function () {
+        KP.audio.play('click');
+        openLevels(trackId);
+      });
+      dom.photoGameGrid.appendChild(card);
+    });
+  }
+
+  function openPhotos() {
+    destroyGame();
+    current.gameId = null;
+    current.photo = null;
+    setNote(dom.photoError, false);
+    setNote(dom.photoWorking, false);
+    showScreen('photos');
+    renderPhotoGrid();
+  }
+
+  function openPhotoGames(record) {
+    current.photo = record;
+    renderPhotoGames();
+    showScreen('photoGame');
   }
 
   /** Small abstract picture of what a level looks like: its grid or its count. */
   function levelPreview(gameId, levelIndex) {
     var preview = util.el('div', 'level-btn__preview');
-    var level = KP.games[gameId].levels[levelIndex];
+    var level = moduleFor(gameId).levels[levelIndex];
     var cols;
     var cells;
     if (level.cols) {
@@ -184,7 +424,7 @@
     util.clear(dom.levelGrid);
     if (!current.gameId) return;
     var gameId = current.gameId;
-    var module = KP.games[gameId];
+    var module = moduleFor(gameId);
 
     for (var index = 0; index < module.levelCount; index++) {
       (function (levelIndex) {
@@ -227,6 +467,8 @@
   }
 
   function destroyGame() {
+    /* Any photo still decoding for a level we are leaving must not mount. */
+    mountToken += 1;
     /* Removing the board removes the node a drag is captured on, so the drag
        has to be released here or no piece can ever be picked up again. */
     KP.drag.cancel();
@@ -243,10 +485,39 @@
     current.gameId = gameId;
     current.levelIndex = levelIndex;
     showScreen('game');
+
+    if (!isPhotoTrack(gameId)) {
+      mountLevel(null);
+      return;
+    }
+
+    /* A photo track decodes its picture afresh for every attempt, so each board
+       is handed a canvas of its own and may do what it likes with it. */
+    var token = mountToken;
+    KP.photos.get(current.photo ? current.photo.id : null).then(function (image) {
+      if (token !== mountToken) return;
+      if (!image) {
+        /* The picture was deleted in another tab, or has become unreadable.
+           Saying so beats a board painted with a drawn scene the child did not
+           choose. */
+        openPhotos();
+        setNote(dom.photoError, true);
+        return;
+      }
+      mountLevel(image);
+    });
+  }
+
+  /**
+   * Builds the board itself. `image` is the photo a photo track plays on, and
+   * null for the drawn games - the module falls back to its own scene then.
+   */
+  function mountLevel(image) {
     /* The game screen must be visible before the jigsaw measures its stage,
        otherwise every size reads as zero and the board collapses. */
-    current.instance = KP.games[gameId].create(dom.gameMount, levelIndex, {
-      onComplete: function (stars) { completeLevel(stars); }
+    current.instance = moduleFor(current.gameId).create(dom.gameMount, current.levelIndex, {
+      onComplete: function (stars) { completeLevel(stars); },
+      image: image
     });
     i18n.apply(dom.gameMount);
   }
@@ -272,7 +543,7 @@
   /** Advances to the next level, or back to the level menu after the last one. */
   function goNext() {
     KP.audio.play('click');
-    var module = KP.games[current.gameId];
+    var module = moduleFor(current.gameId);
     var nextIndex = current.levelIndex + 1;
     hideOverlay();
     if (nextIndex < module.levelCount) {
@@ -291,6 +562,7 @@
     i18n.apply(document);
     renderHome();
     renderLevels();
+    renderPhotoGames();
     updateSoundButton();
     /* Direction and font metrics can change the available width, so the running
        puzzle recomputes its geometry - without rebuilding, keeping its state. */
@@ -320,17 +592,33 @@
     applyLanguage(next);
   }
 
+  /**
+   * One step back along the route the child walked in on:
+   * board -> levels -> (which game?) -> pictures -> home.
+   */
   function goBack() {
     KP.audio.play('click');
     hideOverlay();
+
     if (dom.screens.game.classList.contains('is-active')) {
       destroyGame();
       renderLevels();
       showScreen('levels');
       return;
     }
+    if (dom.screens.levels.classList.contains('is-active') && isPhotoTrack(current.gameId)) {
+      destroyGame();
+      renderPhotoGames();
+      showScreen('photoGame');
+      return;
+    }
+    if (dom.screens.photoGame.classList.contains('is-active')) {
+      openPhotos();
+      return;
+    }
     destroyGame();
     current.gameId = null;
+    current.photo = null;
     renderHome();
     showScreen('home');
   }
@@ -340,6 +628,7 @@
     hideOverlay();
     destroyGame();
     current.gameId = null;
+    current.photo = null;
     renderHome();
     showScreen('home');
   }
@@ -359,6 +648,11 @@
     KP.audio.setEnabled(progress.sound !== false);
     applyLanguage(progress.lang || i18n.getLang());
     showScreen('home');
+
+    $('glyph-take').innerHTML = KP.art.icon('camera');
+    $('glyph-pick').innerHTML = KP.art.icon('gallery');
+    dom.takeInput.addEventListener('change', function () { handlePicked(dom.takeInput); });
+    dom.pickInput.addEventListener('change', function () { handlePicked(dom.pickInput); });
 
     dom.back.addEventListener('click', goBack);
     dom.home.addEventListener('click', goHome);

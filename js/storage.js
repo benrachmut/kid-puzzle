@@ -10,7 +10,12 @@
   var KP = (global.KP = global.KP || {});
 
   var STORAGE_KEY = 'kid-puzzle:progress:v1';
-  var GAME_IDS = ['jigsaw', 'match', 'memory', 'slide', 'sequence'];
+  /* The two photo tracks keep their stars here like any other game. They are
+     deliberately not per-photo: a child does not think of "level 3 of that
+     picture of the dog", and per-photo progress would vanish the moment the
+     photo was deleted. */
+  var GAME_IDS = ['jigsaw', 'match', 'memory', 'slide', 'sequence',
+    'photoJigsaw', 'photoSlide'];
   var memoryFallback = null;
 
   /**

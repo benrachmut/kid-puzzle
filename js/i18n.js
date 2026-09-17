@@ -45,7 +45,22 @@
       'sequence.row': 'The pattern so far',
       'sequence.gap': 'Missing piece',
       'sequence.choices': 'Choose what comes next',
-      'jigsaw.rotate': 'Click a piece to turn it'
+      'jigsaw.rotate': 'Click a piece to turn it',
+      'game.photos': 'My Pictures',
+      'game.photoJigsaw': 'Picture Jigsaw',
+      'game.photoSlide': 'Sliding Picture',
+      'photos.heading': 'Your pictures',
+      'photos.take': 'Take a picture',
+      'photos.pick': 'Choose a picture',
+      'photos.empty': 'No pictures yet - take one!',
+      'photos.item': 'Picture',
+      'photos.notKept': 'These pictures will be forgotten when the game closes',
+      'photos.badFile': 'That picture could not be opened. Try another one',
+      'photos.working': 'Just a moment...',
+      'photos.delete': 'Remove this picture',
+      'photos.deleteYes': 'Yes, remove it',
+      'photos.deleteNo': 'Keep it',
+      'photos.chooseGame': 'What shall we play with it?'
     },
     he: {
       dir: 'rtl',
@@ -82,7 +97,22 @@
       'sequence.row': 'הרצף עד כה',
       'sequence.gap': 'החלק החסר',
       'sequence.choices': 'בחרו מה בא אחר כך',
-      'jigsaw.rotate': 'לחצו על חלק כדי לסובב אותו'
+      'jigsaw.rotate': 'לחצו על חלק כדי לסובב אותו',
+      'game.photos': 'התמונות שלי',
+      'game.photoJigsaw': 'פאזל מהתמונה',
+      'game.photoSlide': 'תמונה מחליקה',
+      'photos.heading': 'התמונות שלכם',
+      'photos.take': 'לצלם תמונה',
+      'photos.pick': 'לבחור תמונה',
+      'photos.empty': 'עוד אין תמונות - צלמו אחת!',
+      'photos.item': 'תמונה',
+      'photos.notKept': 'התמונות האלה יישכחו כשהמשחק ייסגר',
+      'photos.badFile': 'לא הצלחנו לפתוח את התמונה. נסו אחרת',
+      'photos.working': 'רק רגע...',
+      'photos.delete': 'להסיר את התמונה',
+      'photos.deleteYes': 'כן, להסיר',
+      'photos.deleteNo': 'להשאיר',
+      'photos.chooseGame': 'במה משחקים איתה?'
     }
   };
 

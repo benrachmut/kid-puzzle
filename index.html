@@ -26,6 +26,39 @@
       <div id="home-grid" class="card-grid"></div>
     </section>
 
+    <section id="screen-photos" class="screen" aria-labelledby="photos-heading">
+      <p id="photos-heading" class="screen__heading" data-i18n="photos.heading"></p>
+
+      <div class="photo-actions">
+        <!-- A label wrapping the input is what makes the whole big tile tappable.
+             The input keeps its own focus ring (see .photo-btn:focus-within) so
+             it is still reachable from a keyboard. -->
+        <label class="btn photo-btn">
+          <span id="glyph-take" class="photo-btn__glyph"></span>
+          <span class="photo-btn__text" data-i18n="photos.take"></span>
+          <!-- capture=environment asks the phone for the back camera directly;
+               on a desktop it degrades to an ordinary file picker. -->
+          <input id="input-take" class="photo-btn__input" type="file" accept="image/*" capture="environment">
+        </label>
+        <label class="btn photo-btn">
+          <span id="glyph-pick" class="photo-btn__glyph"></span>
+          <span class="photo-btn__text" data-i18n="photos.pick"></span>
+          <input id="input-pick" class="photo-btn__input" type="file" accept="image/*">
+        </label>
+      </div>
+
+      <p id="photo-working" class="photo-note" data-i18n="photos.working" hidden></p>
+      <p id="photo-error" class="photo-note photo-note--bad" data-i18n="photos.badFile" hidden></p>
+      <p id="photo-hint" class="photo-note photo-note--hint" data-i18n="photos.notKept" hidden></p>
+
+      <div id="photo-grid" class="photo-grid"></div>
+    </section>
+
+    <section id="screen-photo-game" class="screen" aria-labelledby="photo-game-heading">
+      <p id="photo-game-heading" class="screen__heading" data-i18n="photos.chooseGame"></p>
+      <div id="photo-game-grid" class="card-grid"></div>
+    </section>
+
     <section id="screen-levels" class="screen" aria-labelledby="levels-heading">
       <p id="levels-heading" class="screen__heading" data-i18n="ui.chooseLevel"></p>
       <div id="level-grid" class="level-grid"></div>
