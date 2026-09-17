@@ -116,6 +116,12 @@
     apple: '<path d="M50 30c14-12 36-6 36 18 0 22-16 44-26 44-4 0-6-3-10-3s-6 3-10 3C30 92 14 70 14 48c0-24 22-30 36-18z" fill="#ef4444" stroke="#991b1b" stroke-width="4"/>' +
       '<path d="M50 30V12" stroke="#7c2d12" stroke-width="6" stroke-linecap="round"/>' +
       '<path d="M52 18c10-10 22-8 22-8s0 12-12 14-10-6-10-6z" fill="#22c55e"/>',
+    car: '<rect x="10" y="48" width="80" height="26" rx="10" fill="#3b82f6" stroke="#1d4ed8" stroke-width="4"/>' +
+      '<path d="M24 48 34 28h32l10 20z" fill="#bae6fd" stroke="#1d4ed8" stroke-width="4" stroke-linejoin="round"/>' +
+      '<circle cx="30" cy="76" r="11" fill="#1e293b"/><circle cx="70" cy="76" r="11" fill="#1e293b"/>',
+    tree: '<rect x="43" y="58" width="14" height="34" rx="4" fill="#7c2d12"/>' +
+      '<circle cx="50" cy="34" r="22" fill="#22c55e"/><circle cx="31" cy="48" r="16" fill="#16a34a"/>' +
+      '<circle cx="69" cy="48" r="16" fill="#16a34a"/>',
     balloon: '<ellipse cx="50" cy="38" rx="28" ry="33" fill="#f472b6" stroke="#be185d" stroke-width="4"/>' +
       '<polygon points="50,70 44,80 56,80" fill="#be185d"/>' +
       '<path d="M50 80c10 8-10 12 0 18" stroke="#be185d" stroke-width="4" fill="none" stroke-linecap="round"/>' +

@@ -20,7 +20,12 @@
     { count: 3, shapes: 3, colors: 3, distinct: true },
     { count: 4, shapes: 4, colors: 4, distinct: true },
     { count: 5, shapes: 3, colors: 3, distinct: false },
-    { count: 6, shapes: 3, colors: 3, distinct: false }
+    { count: 6, shapes: 3, colors: 3, distinct: false },
+    /* Distractors have no target at all, so the child can no longer solve the
+       board by elimination and has to read shape and colour together. */
+    { count: 5, shapes: 3, colors: 3, distinct: false, distractors: 3 },
+    /* A different rule entirely: click the odd one out, three rounds of it. */
+    { mode: 'odd', rounds: 3, count: 5 }
   ];
 
   /**
@@ -47,9 +52,121 @@
     return util.shuffle(combos).slice(0, level.count);
   }
 
+  /**
+   * Odd-one-out round: every shape shares one look except a single intruder
+   * that differs in shape or in colour. Returns the items plus the odd index.
+   */
+  function buildOddRound(count) {
+    var shapes = util.pick(KP.art.SHAPE_IDS, 2);
+    var colors = util.pick(KP.art.COLOR_IDS, 2);
+    var odd = Math.random() < 0.5
+      ? { shape: shapes[1], color: colors[0] }
+      : { shape: shapes[0], color: colors[1] };
+    var items = [];
+    for (var i = 0; i < count - 1; i++) items.push({ shape: shapes[0], color: colors[0] });
+    var oddIndex = Math.floor(Math.random() * count);
+    items.splice(oddIndex, 0, odd);
+    return { items: items, oddIndex: oddIndex };
+  }
+
+  function createOdd(mount, level, callbacks) {
+    var root = util.el('div', 'match match--odd');
+    var row = util.el('div', 'match__row', { role: 'group', 'data-i18n-aria': 'match.odd' });
+    root.appendChild(row);
+    mount.appendChild(root);
+
+    var round = 0;
+    var mistakes = 0;
+    var busy = false;
+    var finished = false;
+    var timer = null;
+
+    function renderRound() {
+      util.clear(row);
+      var data = buildOddRound(level.count);
+      data.items.forEach(function (item, index) {
+        var node = util.el('div', 'match__piece match__piece--tap', {
+          role: 'button', tabindex: '0', 'data-i18n-aria': 'match.odd'
+        });
+        node.innerHTML = KP.art.shape(item.shape, item.color, false);
+        node.addEventListener('click', function () { choose(index === data.oddIndex, node); });
+        /* role="button" on a div gets no click from the keyboard by itself. */
+        node.addEventListener('keydown', function (ev) {
+          if (ev.key !== 'Enter' && ev.key !== ' ' && ev.key !== 'Spacebar') return;
+          ev.preventDefault();
+          choose(index === data.oddIndex, node);
+        });
+        row.appendChild(node);
+      });
+      /* Rounds after the first are built long after the shell applied the
+         translations, so this subtree has to be labelled again. */
+      KP.i18n.apply(row);
+    }
+
+    /** Guarded by `busy` so a double click cannot score two rounds at once. */
+    function choose(correct, node) {
+      if (finished || busy) return;
+      if (!correct) {
+        mistakes++;
+        KP.audio.play('wrong');
+        node.classList.remove('is-rejected');
+        void node.offsetWidth;
+        node.classList.add('is-rejected');
+        return;
+      }
+      busy = true;
+      KP.audio.play('correct');
+      round++;
+      timer = global.setTimeout(function () {
+        timer = null;
+        busy = false;
+        if (round >= level.rounds) {
+          finished = true;
+          callbacks.onComplete(util.starsForMistakes(mistakes));
+          return;
+        }
+        renderRound();
+      }, 450);
+    }
+
+    renderRound();
+
+    return {
+      relayout: function () {},
+      destroy: function () {
+        finished = true;
+        if (timer !== null) global.clearTimeout(timer);
+        timer = null;
+        util.clear(mount);
+      }
+    };
+  }
+
   function create(mount, levelIndex, callbacks) {
     var level = LEVELS[util.clamp(levelIndex, 0, LEVELS.length - 1)];
+    if (level.mode === 'odd') return createOdd(mount, level, callbacks);
     var items = buildItems(level);
+    /* Extra shapes that belong nowhere: drawn from the same shape/colour pool
+       but excluded from the targets, so they are only rejected on drop. */
+    var lures = [];
+    if (level.distractors) {
+      var used = {};
+      var shapes = [];
+      var colors = [];
+      items.forEach(function (item) {
+        used[item.key] = true;
+        if (shapes.indexOf(item.shape) === -1) shapes.push(item.shape);
+        if (colors.indexOf(item.color) === -1) colors.push(item.color);
+      });
+      var pool = [];
+      shapes.forEach(function (shape) {
+        colors.forEach(function (color) {
+          var key = shape + ':' + color;
+          if (!used[key]) pool.push({ key: key, shape: shape, color: color });
+        });
+      });
+      lures = util.pick(pool, level.distractors);
+    }
 
     var root = util.el('div', 'match');
     var targetRow = util.el('div', 'match__row match__row--targets', {
@@ -75,7 +192,7 @@
       targets.push({ key: item.key, item: item, node: node, filled: false });
     });
 
-    util.shuffle(items).forEach(function (item) {
+    util.shuffle(items.concat(lures)).forEach(function (item) {
       var node = util.el('div', 'match__piece', { role: 'img', 'data-i18n-aria': 'match.item' });
       node.innerHTML = KP.art.shape(item.shape, item.color, false);
       pieceRow.appendChild(node);

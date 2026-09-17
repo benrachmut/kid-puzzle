@@ -18,6 +18,8 @@
       'game.jigsaw': 'Jigsaw',
       'game.match': 'Shapes & Colours',
       'game.memory': 'Memory',
+      'game.slide': 'Sliding Picture',
+      'game.sequence': 'What Comes Next',
       'ui.langToggle': 'עברית',
       'ui.langToggleAria': 'Switch to Hebrew',
       'ui.soundOn': 'Sound on',
@@ -35,7 +37,15 @@
       'match.targets': 'Matching places',
       'match.pieces': 'Shapes to drag',
       'match.item': 'Shape',
-      'memory.card': 'Card'
+      'memory.card': 'Card',
+      'memory.moves': 'Moves',
+      'match.odd': 'Find the one that is different',
+      'slide.board': 'Sliding picture board',
+      'slide.tile': 'Picture tile',
+      'sequence.row': 'The pattern so far',
+      'sequence.gap': 'Missing piece',
+      'sequence.choices': 'Choose what comes next',
+      'jigsaw.rotate': 'Click a piece to turn it'
     },
     he: {
       dir: 'rtl',
@@ -45,6 +55,8 @@
       'game.jigsaw': 'פאזל',
       'game.match': 'צורות וצבעים',
       'game.memory': 'זיכרון',
+      'game.slide': 'תמונה מחליקה',
+      'game.sequence': 'מה בא אחר כך',
       'ui.langToggle': 'English',
       'ui.langToggleAria': 'מעבר לאנגלית',
       'ui.soundOn': 'הצליל דולק',
@@ -62,7 +74,15 @@
       'match.targets': 'מקומות להתאמה',
       'match.pieces': 'צורות לגרירה',
       'match.item': 'צורה',
-      'memory.card': 'קלף'
+      'memory.card': 'קלף',
+      'memory.moves': 'מהלכים',
+      'match.odd': 'מצאו את השונה',
+      'slide.board': 'לוח התמונה המחליקה',
+      'slide.tile': 'חלק מהתמונה',
+      'sequence.row': 'הרצף עד כה',
+      'sequence.gap': 'החלק החסר',
+      'sequence.choices': 'בחרו מה בא אחר כך',
+      'jigsaw.rotate': 'לחצו על חלק כדי לסובב אותו'
     }
   };
 

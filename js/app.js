@@ -12,7 +12,7 @@
   var util = KP.util;
   var i18n = KP.i18n;
 
-  var GAME_ORDER = ['jigsaw', 'match', 'memory'];
+  var GAME_ORDER = ['jigsaw', 'match', 'memory', 'slide', 'sequence'];
   var HOME_PREVIEW_SIZE = 160;
 
   var progress = KP.storage.load();
@@ -109,10 +109,18 @@
 
   function homeArtwork(gameId) {
     var art = util.el('div', 'game-card__art');
-    if (gameId === 'jigsaw') {
+    if (gameId === 'jigsaw' || gameId === 'slide') {
       [[0, 0], [1, 0], [0, 1], [1, 1]].forEach(function (cell) {
-        art.appendChild(quadrantCanvas('meadow', cell[0], cell[1]));
+        art.appendChild(quadrantCanvas(gameId === 'slide' ? 'space' : 'meadow', cell[0], cell[1]));
       });
+    } else if (gameId === 'sequence') {
+      /* An ABAB run, which is exactly what the game asks the child to continue. */
+      [['circle', 'red'], ['star', 'blue'], ['circle', 'red'], ['star', 'blue']]
+        .forEach(function (pair) {
+          var cell = util.el('div');
+          cell.innerHTML = KP.art.shape(pair[0], pair[1], false);
+          art.appendChild(cell);
+        });
     } else if (gameId === 'match') {
       [['circle', 'red'], ['square', 'blue'], ['triangle', 'green'], ['star', 'purple']]
         .forEach(function (pair) {
@@ -155,8 +163,18 @@
   function levelPreview(gameId, levelIndex) {
     var preview = util.el('div', 'level-btn__preview');
     var level = KP.games[gameId].levels[levelIndex];
-    var cols = gameId === 'match' ? Math.min(3, level.count) : level.cols;
-    var cells = gameId === 'match' ? level.count : level.cols * level.rows;
+    var cols;
+    var cells;
+    if (level.cols) {
+      cols = level.cols;
+      cells = level.cols * level.rows;
+    } else if (level.template) {
+      cols = level.template.length;
+      cells = level.template.length;
+    } else {
+      cols = Math.min(3, level.count);
+      cells = level.count;
+    }
     preview.style.setProperty('grid-template-columns', 'repeat(' + cols + ', 1fr)');
     for (var i = 0; i < cells; i++) preview.appendChild(util.el('span'));
     return preview;

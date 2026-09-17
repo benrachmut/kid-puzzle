@@ -14,11 +14,13 @@
 
   var util = KP.util;
 
+  /* 2 -> 3 -> 6 -> 8 -> 10 pairs. The last two need the full picture set. */
   var LEVELS = [
     { cols: 2, rows: 2 },
     { cols: 3, rows: 2 },
     { cols: 4, rows: 3 },
-    { cols: 4, rows: 4 }
+    { cols: 4, rows: 4 },
+    { cols: 5, rows: 4 }
   ];
 
   var HIDE_DELAY_MS = 900;
@@ -35,19 +37,38 @@
     });
     deck = util.shuffle(deck);
 
+    var root = util.el('div', 'board');
+    var hud = util.el('div', 'hud', { 'data-i18n-aria': 'memory.moves' });
+    var hudIcon = util.el('span', 'hud__icon');
+    hudIcon.innerHTML = KP.art.icon('replay');
+    var hudValue = util.el('span', 'hud__value');
+    hud.appendChild(hudIcon);
+    hud.appendChild(hudValue);
+    root.appendChild(hud);
+
     var grid = util.el('div', 'memory', { role: 'group' });
     grid.style.setProperty('--cols', level.cols);
     grid.style.setProperty('--rows', level.rows);
-    mount.appendChild(grid);
+    root.appendChild(grid);
+    mount.appendChild(root);
 
     var cards = [];
     var open = [];
     var matched = 0;
-    var mistakes = 0;
+    var moves = 0;
     var busy = false;
     var finished = false;
     var hideTimer = null;
     var winTimer = null;
+
+    /**
+     * Shows the move count as an icon plus a numeral, so it reads without any
+     * words - the numeral is the same glyph in both languages.
+     */
+    function renderMoves() {
+      hudValue.textContent = String(moves);
+    }
+    renderMoves();
 
     deck.forEach(function (pictureId) {
       var node = util.el('button', 'btn memory__card', { type: 'button', 'data-i18n-aria': 'memory.card' });
@@ -76,14 +97,28 @@
       finished = true;
       winTimer = global.setTimeout(function () {
         winTimer = null;
-        callbacks.onComplete(util.starsForMistakes(mistakes));
+        callbacks.onComplete(starsForMoves());
       }, 450);
+    }
+
+    /**
+     * Rates the round by moves rather than mistakes: a perfect game takes one
+     * move per pair, so the thresholds are multiples of the pair count and the
+     * rating stays fair whether the board holds 2 pairs or 10.
+     */
+    function starsForMoves() {
+      var pairs = cards.length / 2;
+      if (moves <= Math.ceil(pairs * 1.6)) return 3;
+      if (moves <= Math.ceil(pairs * 2.4)) return 2;
+      return 1;
     }
 
     function resolvePair() {
       var first = open[0];
       var second = open[1];
       open = [];
+      moves++;
+      renderMoves();
 
       if (first.pictureId === second.pictureId) {
         first.matched = true;
@@ -98,7 +133,6 @@
         return;
       }
 
-      mistakes++;
       KP.audio.play('wrong');
       busy = true;
       hideTimer = global.setTimeout(function () {

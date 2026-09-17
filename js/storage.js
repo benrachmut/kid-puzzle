@@ -10,7 +10,7 @@
   var KP = (global.KP = global.KP || {});
 
   var STORAGE_KEY = 'kid-puzzle:progress:v1';
-  var GAME_IDS = ['jigsaw', 'match', 'memory'];
+  var GAME_IDS = ['jigsaw', 'match', 'memory', 'slide', 'sequence'];
   var memoryFallback = null;
 
   /**

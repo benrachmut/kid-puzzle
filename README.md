@@ -8,9 +8,11 @@ the whole interface.
 
 | Game | What you do | Levels |
 | --- | --- | --- |
-| Jigsaw | Drag the pieces onto the board; they snap when they are close enough | 4 → 6 → 9 → 12 pieces |
-| Shapes & Colours | Drag each shape onto the matching outline | 3 → 4 → 5 → 6 shapes |
-| Memory | Flip cards and find the pairs | 2×2 → 3×2 → 4×3 → 4×4 |
+| Jigsaw | Drag the pieces onto the board; they snap when they are close enough. On the last two levels pieces start turned — click one to rotate it, and it only snaps when it is upright | 4 → 6 → 9 → 12 → 16 → 20 → 25 pieces |
+| Shapes & Colours | Drag each shape onto the matching outline. Later levels add distractor shapes that fit nowhere, and the last level changes the rule: click the odd one out | 3 → 4 → 5 → 6 shapes, then distractors, then odd-one-out |
+| Memory | Flip cards and find the pairs; rated on how few moves you take | 2 → 3 → 6 → 8 → 10 pairs |
+| Sliding Picture | Slide tiles into the gap to rebuild the picture | 3×3 → 4×4 |
+| What Comes Next | Read the pattern and pick the piece that continues it | 4 patterns, ABAB → ABCB |
 
 Finishing a level awards up to three stars and unlocks the next one. Stars and
 unlocked levels are kept in `localStorage`; if storage is unavailable or blocked
@@ -65,6 +67,8 @@ js/confetti.js      celebration burst on a full-screen canvas
 js/games/jigsaw.js
 js/games/matching.js
 js/games/memory.js
+js/games/slide.js
+js/games/sequence.js
 js/app.js           screens, progress, language & sound, win overlay
 ```
 

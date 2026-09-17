@@ -14,11 +14,18 @@
 
   var util = KP.util;
 
+  /* The first four levels are the original warm-up ladder. The last three add
+     volume, and the top two also start every piece at a random quarter turn:
+     a click turns a piece, and a piece only snaps when its rotation is upright
+     as well as its position. */
   var LEVELS = [
     { cols: 2, rows: 2, scene: 'meadow' },
     { cols: 3, rows: 2, scene: 'house' },
     { cols: 3, rows: 3, scene: 'sea' },
-    { cols: 4, rows: 3, scene: 'space' }
+    { cols: 4, rows: 3, scene: 'space' },
+    { cols: 4, rows: 4, scene: 'meadow' },
+    { cols: 5, rows: 4, scene: 'house', rotate: true },
+    { cols: 5, rows: 5, scene: 'sea', rotate: true }
   ];
 
   var PAD = 12;
@@ -70,7 +77,10 @@
         node: node,
         canvas: canvas,
         left: 0,
-        top: 0
+        top: 0,
+        /* Quarter turns, 0 = upright. Random on rotating levels, and never
+           starts solved-by-accident because 0 is excluded there. */
+        rot: level.rotate ? 1 + Math.floor(Math.random() * 3) : 0
       };
       pieces.push(piece);
       node.addEventListener('pointerdown', function (ev) { onPointerDown(ev, piece); });
@@ -126,10 +136,16 @@
       piece.node.style.top = top + 'px';
     }
 
+    /** Scale (tray pieces shrink) combined with the piece's quarter turn. */
+    function transformFor(piece, dragging) {
+      var scale = (dragging || piece.placed) ? 1 : geo.trayScale;
+      return 'scale(' + scale + ') rotate(' + (piece.rot * 90) + 'deg)';
+    }
+
     function restPiece(piece) {
       var pos = piece.placed ? slotPosition(piece) : traySlotPosition(piece.trayIndex);
       moveTo(piece, pos.left, pos.top);
-      piece.node.style.transform = piece.placed ? 'scale(1)' : 'scale(' + geo.trayScale + ')';
+      piece.node.style.transform = transformFor(piece, false);
     }
 
     /**
@@ -157,7 +173,7 @@
       geo.trayTop = geo.boardY + geo.boardH + PAD;
       geo.trayW = W - PAD * 2;
       geo.trayH = Math.max(geo.pieceH, H - geo.trayTop - PAD);
-      geo.trayRows = count <= 4 ? 1 : 2;
+      geo.trayRows = count <= 4 ? 1 : (count <= 12 ? 2 : 3);
       geo.trayCols = Math.ceil(count / geo.trayRows);
       geo.trayScale = util.clamp(
         Math.min(
@@ -225,7 +241,7 @@
         onStart: function () {
           draggingPiece = piece;
           piece.node.classList.add('is-dragging');
-          piece.node.style.transform = 'scale(1)';
+          piece.node.style.transform = transformFor(piece, true);
           KP.audio.play('pickup');
         },
         onMove: function (state) {
@@ -243,8 +259,12 @@
           piece.node.classList.remove('is-dragging');
 
           if (!state.moved) {
-            /* A plain click (or a double-click landing on the same piece) is
-               not a drop attempt: put it back without punishing the child. */
+            /* A click is a turn request on rotating levels, and otherwise just
+               a stray tap (or half a double-click) that must not be punished. */
+            if (level.rotate) {
+              piece.rot = (piece.rot + 1) % 4;
+              KP.audio.play('flip');
+            }
             restPiece(piece);
             return;
           }
@@ -258,6 +278,15 @@
           );
 
           if (distance <= Math.max(geo.pieceW, geo.pieceH) * SNAP_FACTOR) {
+            if (piece.rot !== 0) {
+              /* Right place, wrong way up: still a miss, so the child learns
+                 the piece has to be turned upright first. */
+              mistakes++;
+              KP.audio.play('wrong');
+              flashRejected(piece);
+              restPiece(piece);
+              return;
+            }
             piece.placed = true;
             piece.node.classList.add('is-placed');
             restPiece(piece);
