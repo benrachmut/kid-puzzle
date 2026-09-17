@@ -15,6 +15,20 @@
   var active = null;
 
   /**
+   * How far a gesture may wander and still count as a tap.
+   *
+   * A finger never holds still: what a child means as a tap routinely drifts
+   * several pixels, and at a 3px threshold a tap on a phone reads as a drag.
+   * This is what lets one tap rotate a jigsaw piece or slide a tile, while a
+   * real drag of the same piece is still a drag.
+   */
+  var TAP_SLOP = 12;
+
+  function swallow(ev) {
+    ev.preventDefault();
+  }
+
+  /**
    * Starts a drag for one element.
    * Returns false when the gesture is ignored: a second button, or a second
    * pointerdown arriving while a drag is already running (rapid clicking).
@@ -32,7 +46,9 @@
       y: ev.clientY,
       dx: 0,
       dy: 0,
-      moved: false
+      /* Sticky: once the child has clearly dragged, bringing the piece back
+         past the start must not turn the gesture into a tap again. */
+      tap: true
     };
     active = state;
 
@@ -42,7 +58,7 @@
       state.y = moveEv.clientY;
       state.dx = state.x - state.startX;
       state.dy = state.y - state.startY;
-      if (Math.abs(state.dx) > 3 || Math.abs(state.dy) > 3) state.moved = true;
+      if (Math.max(Math.abs(state.dx), Math.abs(state.dy)) > TAP_SLOP) state.tap = false;
       if (handlers.onMove) handlers.onMove(state);
     }
 
@@ -94,5 +110,23 @@
     if (active) active.abort();
   }
 
-  KP.drag = { begin: begin, cancel: cancel };
+  /**
+   * Stops the browser's own touch gestures on a play surface.
+   *
+   * A slow drag by a small hand is exactly the gesture Android Chrome reads as
+   * a long press: it offers to save the canvas as an image, or starts a native
+   * element drag, and either one strands the piece mid-gesture. Both events
+   * bubble, so one call with the game's root covers every piece and canvas
+   * inside it, including the ones built later.
+   *
+   * The CSS half of this - which browser gestures the boards give up - lives in
+   * the touch section of the stylesheet.
+   */
+  function harden(root) {
+    root.setAttribute('draggable', 'false');
+    root.addEventListener('contextmenu', swallow);
+    root.addEventListener('dragstart', swallow);
+  }
+
+  KP.drag = { begin: begin, cancel: cancel, harden: harden };
 })(window);

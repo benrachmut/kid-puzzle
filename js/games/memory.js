@@ -52,6 +52,10 @@
     root.appendChild(grid);
     mount.appendChild(root);
 
+    /* Long-press on a card offers to save its picture on Android, in the middle
+       of the press the child means as a flip. */
+    KP.drag.harden(root);
+
     var cards = [];
     var open = [];
     var matched = 0;

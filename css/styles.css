@@ -525,7 +525,10 @@ body {
 }
 
 @media (max-width: 720px) {
-  .card-grid { grid-template-columns: 1fr; }
+  /* Two columns rather than one: on a phone a single column pushes the last
+     cards off the bottom of the screen, and a child should see every game at
+     once. The cards are shrunk to match in the touch section below. */
+  .card-grid { grid-template-columns: repeat(2, 1fr); }
   .level-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
@@ -823,3 +826,134 @@ body {
 }
 
 .photo-preview span.is-gap { background-image: none; background-color: rgba(15, 23, 42, 0.12); }
+
+/* ==========================================================================
+   Touch
+   The game is played with a finger on a 360x740 Android phone as much as with
+   a mouse. Everything below is about that finger: which gestures the browser
+   may take away, how large a target has to be, and what still has to fit on a
+   screen a third of the size the layout above was written for. Nothing here
+   removes a hover, a cursor or a focus ring - the mouse keeps working exactly
+   as it did.
+   ========================================================================== */
+
+/* A drag that starts on a piece must never become a page pan or a
+   pull-to-refresh: on Android Chrome either one takes the pointer stream away
+   mid-gesture and the piece freezes under the finger. Refusing them costs
+   nothing, because the body cannot scroll in the first place. */
+html,
+body {
+  overscroll-behavior: none;
+}
+
+/* Chrome's URL bar changes the visible height without changing the layout
+   viewport, so `height: 100%` leaves the bottom of the tray behind it. */
+@supports (height: 100dvh) {
+  html,
+  body { height: 100dvh; }
+}
+
+/* The long-press callout ("save image") and the grey tap flash belong to a page
+   being read, not to a board being played. The other half of this - the context
+   menu and the native element drag - is KP.drag.harden(). */
+.app,
+.overlay {
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* A menu can be taller than a phone screen - six game cards do not fit in
+   740px - so the screens scroll, vertically and only vertically. `contain`
+   stops that scroll from becoming a page-level pull-to-refresh. */
+.screen {
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
+}
+
+/* The board, by contrast, owns every touch inside it: no pan, no pinch, no
+   double-tap zoom. Taps and clicks are unaffected, since `none` only refuses
+   the browser's own gestures. One rule covers the pieces, the tiles, the cards
+   and every canvas, including the ones built later in the game. */
+.game-mount,
+.game-mount * {
+  touch-action: none;
+}
+
+@media (max-width: 720px), (max-height: 520px) {
+  /* Grid content that is centred and then overflows is clipped at the top with
+     no way to scroll back to it; start-aligned content scrolls properly. */
+  .card-grid,
+  .level-grid { align-content: start; }
+
+  /* The board is sized by whichever axis is tighter, so on a phone it leaves a
+     band of empty space; centring puts it under the child's thumb instead of
+     hard against the top bar. */
+  .board { justify-content: center; }
+}
+
+@media (max-width: 720px) {
+  /* The cards have to shrink to stay all-visible in two columns; at their
+     desktop size six of them need two screenfuls of scrolling. */
+  .game-card,
+  .level-btn {
+    max-height: none;
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .game-card__art { width: min(13vh, 100%); }
+  .game-card__name { font-size: 16px; }
+  .level-btn__num { font-size: 34px; }
+
+  /* The three win-overlay buttons have to fit one row in 360px, or "next"
+     wraps below the panel's fold on a phone held sideways. */
+  .btn--big { padding: 16px 26px; }
+}
+
+/* A phone on its side is 360px tall in total and a 72px top bar eats a fifth
+   of that. 56px is still well clear of a 48px finger target. */
+@media (max-height: 520px) {
+  :root { --tap: 56px; }
+
+  .topbar__title { font-size: 18px; }
+
+  .game-card,
+  .level-btn {
+    max-height: none;
+    padding: 8px;
+    gap: 6px;
+  }
+
+  .game-card__art { width: min(20vh, 100%); }
+
+  /* The largest memory board has 20 cards to fit in ~220px of height, where the
+     stylesheet's own padding and gaps cost each card the last pixels that keep
+     it above a 48px finger target. */
+  .memory {
+    padding: 4px;
+    gap: 4px;
+  }
+}
+
+/* Nine pattern cells have to stay one readable row on a 360px screen, so those
+   cells may drop below a finger size - they are not tappable. The three
+   choices are, so they keep a finger-sized floor in either orientation. */
+.seq__cell { width: clamp(30px, 9vw, 96px); }
+.seq__choice { width: clamp(56px, 12vh, 96px); }
+
+/* A tile that is following the finger must not also be easing back from where
+   the previous frame put it. */
+.slide__tile.is-pushing { transition: none; }
+
+/* Held sideways, the celebration panel can be taller than the screen: it
+   scrolls inside itself rather than putting "next" out of reach. */
+.overlay { padding: 12px; }
+
+.overlay__panel {
+  max-width: 100%;
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}

@@ -35,9 +35,50 @@
   ];
 
   var PAD = 12;
+  /* Share of the stage the board may take: of the height when the tray goes
+     underneath it, of the width when the tray goes beside it. */
   var BOARD_HEIGHT_SHARE = 0.6;
+  var BOARD_WIDTH_SHARE = 0.6;
   /** A drop counts as "close enough" within this fraction of a piece. */
   var SNAP_FACTOR = 0.7;
+
+  /* Phone layouts. The desktop and wide-window layout is deliberately left
+     alone - a mouse has no trouble with a small tray piece - so these are
+     viewport queries mirroring the stylesheet's own breakpoints rather than
+     measurements of the stage.
+     PHONE_PORTRAIT: the tray grid is fitted to the space it has instead of
+     using a fixed row count, which on a 360px screen left the 25 pieces at
+     32px and overlapping - far too small to pick up with a finger.
+     PHONE_LANDSCAPE: a phone on its side leaves the stage barely 270px tall,
+     and a board capped at 60% of that comes out 142px across (28px pieces), so
+     there the board takes the height and the tray moves alongside it. */
+  var PHONE_PORTRAIT = '(max-width: 720px) and (orientation: portrait)';
+  var PHONE_LANDSCAPE =
+    '(max-width: 1024px) and (max-height: 520px) and (orientation: landscape)';
+
+  function mediaMatches(query) {
+    return !!(global.matchMedia && global.matchMedia(query).matches);
+  }
+
+  /**
+   * Picks the tray grid that leaves the pieces as large as possible.
+   *
+   * One fixed row count cannot serve both a wide desktop tray and the narrow,
+   * tall tray of a phone. Trying every row count is a couple of dozen
+   * divisions once per layout, and it is what keeps a 25-piece tray at a
+   * finger-sized scale on a 360px screen.
+   */
+  function fitTray(count, trayW, trayH, pieceW, pieceH) {
+    var best = { rows: 1, cols: count, scale: 0 };
+    for (var rows = 1; rows <= count; rows++) {
+      var cols = Math.ceil(count / rows);
+      /* The 1.1 leaves a tenth of a piece as breathing space between cells, so
+         neighbouring pieces in the tray never look like one placed pair. */
+      var scale = Math.min(trayW / (cols * pieceW * 1.1), trayH / (rows * pieceH * 1.1));
+      if (scale > best.scale) best = { rows: rows, cols: cols, scale: scale };
+    }
+    return best;
+  }
 
   function create(mount, levelIndex, callbacks) {
     var level = LEVELS[util.clamp(levelIndex, 0, LEVELS.length - 1)];
@@ -54,8 +95,8 @@
     mount.appendChild(stage);
 
     var geo = { stageW: 0, stageH: 0, boardX: 0, boardY: 0, boardW: 0, boardH: 0,
-      pieceW: 0, pieceH: 0, trayTop: 0, trayW: 0, trayH: 0, trayCols: 1,
-      trayRows: 1, trayScale: 1 };
+      pieceW: 0, pieceH: 0, trayX: PAD, trayTop: 0, trayW: 0, trayH: 0,
+      trayCols: 1, trayRows: 1, trayScale: 1 };
 
     var pieces = [];
     var draggingPiece = null;
@@ -124,7 +165,7 @@
       var col = trayIndex % geo.trayCols;
       var row = Math.floor(trayIndex / geo.trayCols);
       return {
-        left: PAD + cellW * (col + 0.5) - geo.pieceW / 2,
+        left: geo.trayX + cellW * (col + 0.5) - geo.pieceW / 2,
         top: geo.trayTop + cellH * (row + 0.5) - geo.pieceH / 2
       };
     }
@@ -168,28 +209,47 @@
       geo.stageH = H;
 
       var aspect = cols / rows;
-      var maxW = W - PAD * 2;
-      var maxH = H * BOARD_HEIGHT_SHARE - PAD;
+      var beside = mediaMatches(PHONE_LANDSCAPE);
+      var maxW = beside ? W * BOARD_WIDTH_SHARE - PAD * 2 : W - PAD * 2;
+      var maxH = beside ? H - PAD * 2 : H * BOARD_HEIGHT_SHARE - PAD;
       geo.boardW = Math.max(40, Math.min(maxW, maxH * aspect));
       geo.boardH = geo.boardW / aspect;
-      geo.boardX = (W - geo.boardW) / 2;
-      geo.boardY = PAD;
       geo.pieceW = geo.boardW / cols;
       geo.pieceH = geo.boardH / rows;
 
-      geo.trayTop = geo.boardY + geo.boardH + PAD;
-      geo.trayW = W - PAD * 2;
-      geo.trayH = Math.max(geo.pieceH, H - geo.trayTop - PAD);
-      geo.trayRows = count <= 4 ? 1 : (count <= 12 ? 2 : 3);
-      geo.trayCols = Math.ceil(count / geo.trayRows);
-      geo.trayScale = util.clamp(
-        Math.min(
-          geo.trayW / (geo.trayCols * geo.pieceW * 1.1),
-          geo.trayH / (geo.trayRows * geo.pieceH * 1.1)
-        ),
-        0.3,
-        1
-      );
+      if (beside) {
+        geo.boardX = PAD;
+        geo.boardY = Math.max(PAD, (H - geo.boardH) / 2);
+        geo.trayX = geo.boardX + geo.boardW + PAD;
+        geo.trayTop = PAD;
+        geo.trayW = Math.max(geo.pieceW, W - geo.trayX - PAD);
+        geo.trayH = Math.max(geo.pieceH, H - PAD * 2);
+      } else {
+        geo.boardX = (W - geo.boardW) / 2;
+        geo.boardY = PAD;
+        geo.trayX = PAD;
+        geo.trayTop = geo.boardY + geo.boardH + PAD;
+        geo.trayW = W - PAD * 2;
+        geo.trayH = Math.max(geo.pieceH, H - geo.trayTop - PAD);
+      }
+
+      if (beside || mediaMatches(PHONE_PORTRAIT)) {
+        var fitted = fitTray(count, geo.trayW, geo.trayH, geo.pieceW, geo.pieceH);
+        geo.trayRows = fitted.rows;
+        geo.trayCols = fitted.cols;
+        geo.trayScale = util.clamp(fitted.scale, 0.3, 1);
+      } else {
+        geo.trayRows = count <= 4 ? 1 : (count <= 12 ? 2 : 3);
+        geo.trayCols = Math.ceil(count / geo.trayRows);
+        geo.trayScale = util.clamp(
+          Math.min(
+            geo.trayW / (geo.trayCols * geo.pieceW * 1.1),
+            geo.trayH / (geo.trayRows * geo.pieceH * 1.1)
+          ),
+          0.3,
+          1
+        );
+      }
 
       board.style.left = geo.boardX + 'px';
       board.style.top = geo.boardY + 'px';
@@ -265,9 +325,10 @@
           draggingPiece = null;
           piece.node.classList.remove('is-dragging');
 
-          if (!state.moved) {
-            /* A click is a turn request on rotating levels, and otherwise just
-               a stray tap (or half a double-click) that must not be punished. */
+          if (state.tap) {
+            /* A tap is a turn request on rotating levels, and otherwise just a
+               stray tap (or half a double-tap) that must not be punished. The
+               tap radius is generous because a child's finger always drifts. */
             if (level.rotate) {
               piece.rot = (piece.rot + 1) % 4;
               KP.audio.play('flip');
@@ -315,6 +376,9 @@
 
       if (started) ev.preventDefault();
     }
+
+    /* Long-press and native drag would both fire in the middle of a slow drag. */
+    KP.drag.harden(stage);
 
     layout();
 

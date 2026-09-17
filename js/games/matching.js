@@ -81,6 +81,9 @@
     var finished = false;
     var timer = null;
 
+    /* Long-press on a shape offers to save it as an image on Android. */
+    KP.drag.harden(root);
+
     function renderRound() {
       util.clear(row);
       var data = buildOddRound(level.count);
@@ -199,6 +202,9 @@
       node.addEventListener('pointerdown', function (ev) { onPointerDown(ev, item, node); });
     });
 
+    /* Long-press and native drag would both fire in the middle of a slow drag. */
+    KP.drag.harden(root);
+
     function clearHot() {
       targets.forEach(function (target) { target.node.classList.remove('is-hot'); });
     }
@@ -248,7 +254,9 @@
           node.style.transform = '';
           clearHot();
 
-          if (!state.moved) return;
+          /* A tap on a piece is not a drop attempt: these pieces are only
+             ever dragged, so a stray tap must cost the child nothing. */
+          if (state.tap) return;
 
           var target = targetAt(state.x, state.y);
           if (!target) {

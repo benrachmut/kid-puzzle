@@ -35,6 +35,9 @@
     root.appendChild(choicesRow);
     mount.appendChild(root);
 
+    /* Long-press on a shape offers to save it as an image on Android. */
+    KP.drag.harden(root);
+
     var round = 0;
     var mistakes = 0;
     var busy = false;
