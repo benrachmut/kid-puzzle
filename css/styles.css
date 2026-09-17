@@ -1,0 +1,530 @@
+/* ==========================================================================
+   Kid Puzzle - styles
+   Layout is class-based throughout. The only values JavaScript writes into an
+   element are genuinely dynamic geometry (a dragged piece's position, a grid's
+   column count); those go through CSS custom properties or the transform of a
+   piece that is currently under the pointer.
+   ========================================================================== */
+
+:root {
+  --c-bg-1: #fef3c7;
+  --c-bg-2: #bfdbfe;
+  --c-surface: #ffffff;
+  --c-ink: #1e293b;
+  --c-ink-soft: #64748b;
+  --c-accent: #6366f1;
+  --c-accent-dark: #4338ca;
+  --c-star: #facc15;
+  --c-good: #22c55e;
+  --c-bad: #ef4444;
+  --radius: 22px;
+  --shadow: 0 6px 0 rgba(15, 23, 42, 0.16), 0 12px 28px rgba(15, 23, 42, 0.14);
+  --shadow-sm: 0 3px 0 rgba(15, 23, 42, 0.14);
+  --tap: 72px;
+}
+
+* { box-sizing: border-box; }
+
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  font-family: "Varela Round", "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+  color: var(--c-ink);
+  background: linear-gradient(160deg, var(--c-bg-1), var(--c-bg-2));
+  overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+.app {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px clamp(10px, 2vw, 28px) 14px;
+}
+
+/* ---------- top bar ---------- */
+
+.topbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.topbar__spacer { flex: 1 1 auto; }
+
+.topbar__title {
+  margin: 0;
+  font-size: clamp(20px, 3vw, 34px);
+  letter-spacing: 0.5px;
+}
+
+/* ---------- buttons ---------- */
+
+.btn {
+  font: inherit;
+  cursor: pointer;
+  border: none;
+  border-radius: var(--radius);
+  background: var(--c-surface);
+  color: var(--c-ink);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn:hover { transform: translateY(-2px); }
+.btn:active { transform: translateY(2px); box-shadow: none; }
+.btn:focus-visible { outline: 4px solid var(--c-accent); outline-offset: 3px; }
+
+.btn--icon {
+  width: var(--tap);
+  height: var(--tap);
+  padding: 14px;
+  border-radius: 50%;
+  color: var(--c-accent-dark);
+}
+
+.btn--lang {
+  width: auto;
+  min-width: var(--tap);
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-size: clamp(15px, 1.6vw, 20px);
+  font-weight: 700;
+}
+
+.btn--lang .btn__glyph { width: 30px; height: 30px; flex: 0 0 auto; }
+
+.btn--big {
+  padding: 18px 40px;
+  font-size: clamp(20px, 2.6vw, 30px);
+  font-weight: 700;
+  background: var(--c-accent);
+  color: #fff;
+  box-shadow: var(--shadow);
+}
+
+.btn--big .btn__glyph { width: 34px; height: 34px; flex: 0 0 auto; }
+
+.btn__glyph { display: inline-flex; }
+
+.art { width: 100%; height: 100%; display: block; }
+.art--icon { color: inherit; }
+
+/* ---------- screens ---------- */
+
+.screen {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.screen.is-active { display: flex; }
+
+.screen__heading {
+  margin: 0;
+  text-align: center;
+  font-size: clamp(18px, 2.4vw, 28px);
+  color: var(--c-ink-soft);
+}
+
+/* ---------- home ---------- */
+
+.card-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: clamp(12px, 2vw, 28px);
+  align-content: center;
+}
+
+.game-card {
+  flex-direction: column;
+  min-width: 0;
+  padding: clamp(14px, 2vw, 26px);
+  gap: 12px;
+  background: var(--c-surface);
+  box-shadow: var(--shadow);
+  height: 100%;
+  max-height: 58vh;
+}
+
+.game-card__art {
+  width: min(34vh, 100%);
+  aspect-ratio: 1 / 1;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  padding: 8px;
+}
+
+.game-card__art .art { width: 100%; height: 100%; }
+
+.game-card__name {
+  font-size: clamp(17px, 2vw, 26px);
+  font-weight: 700;
+}
+
+/* ---------- stars ---------- */
+
+.stars {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-width: 100%;
+  justify-content: center;
+}
+
+.stars .art { width: 22px; height: 22px; color: #cbd5e1; }
+.stars .is-earned .art { color: var(--c-star); }
+
+.stars--big .art { width: clamp(46px, 9vw, 84px); height: clamp(46px, 9vw, 84px); }
+
+/* ---------- level select ---------- */
+
+.level-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: clamp(12px, 2vw, 28px);
+  align-content: center;
+}
+
+.level-btn {
+  flex-direction: column;
+  min-width: 0;
+  gap: 10px;
+  padding: clamp(12px, 2vw, 24px);
+  background: var(--c-surface);
+  box-shadow: var(--shadow);
+  height: 100%;
+  max-height: 46vh;
+}
+
+.level-btn__num {
+  font-size: clamp(38px, 8vw, 84px);
+  font-weight: 800;
+  color: var(--c-accent);
+  line-height: 1;
+}
+
+.level-btn__preview {
+  width: min(18vh, 70%);
+  aspect-ratio: 1 / 1;
+  display: grid;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 12px;
+  background: #eef2ff;
+}
+
+.level-btn__preview span {
+  border-radius: 4px;
+  background: var(--c-accent);
+  opacity: 0.75;
+}
+
+.level-btn.is-locked {
+  cursor: not-allowed;
+  filter: grayscale(1);
+  opacity: 0.55;
+}
+
+.level-btn.is-locked:hover { transform: none; }
+
+.level-btn__lock { width: 42px; height: 42px; color: var(--c-ink-soft); }
+
+.game-mount {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+}
+
+/* ---------- game screen ---------- */
+
+.stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.5);
+  overflow: hidden;
+}
+
+/* Jigsaw geometry is computed in pixels, so the stage is always laid out
+   left-to-right even in Hebrew; puzzle positions are not a language concern. */
+.stage--ltr { direction: ltr; }
+
+/* ---------- jigsaw ---------- */
+
+.jig-board {
+  position: absolute;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 5px rgba(99, 102, 241, 0.45);
+  background: #f8fafc;
+}
+
+.jig-board__ghost {
+  position: absolute;
+  inset: 0;
+  opacity: 0.18;
+}
+
+.jig-slot {
+  position: absolute;
+  box-shadow: inset 0 0 0 2px rgba(99, 102, 241, 0.35);
+  border-radius: 6px;
+}
+
+.jig-piece {
+  position: absolute;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: grab;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.18s ease, left 0.25s ease, top 0.25s ease;
+  transform-origin: center center;
+  touch-action: none;
+}
+
+.jig-piece canvas { display: block; width: 100%; height: 100%; }
+
+.jig-piece.is-dragging {
+  cursor: grabbing;
+  transition: none;
+  z-index: 30;
+  box-shadow: 0 14px 26px rgba(15, 23, 42, 0.35);
+}
+
+.jig-piece.is-placed {
+  cursor: default;
+  box-shadow: none;
+  border-radius: 0;
+  z-index: 5;
+}
+
+.jig-piece.is-rejected canvas { animation: shake 0.3s ease; }
+
+@keyframes shake {
+  25% { transform: translateX(-7px) rotate(-3deg); }
+  75% { transform: translateX(7px) rotate(3deg); }
+}
+
+/* ---------- matching ---------- */
+
+.match {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  padding: clamp(8px, 2vh, 22px);
+  gap: clamp(8px, 2vh, 22px);
+}
+
+.match__row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: clamp(8px, 1.6vw, 22px);
+}
+
+.match__target,
+.match__piece {
+  width: clamp(72px, 17vh, 150px);
+  aspect-ratio: 1 / 1;
+  border-radius: 18px;
+  padding: 6px;
+}
+
+.match__target {
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: inset 0 0 0 4px rgba(148, 163, 184, 0.5);
+  display: grid;
+  place-items: center;
+}
+
+.match__target.is-hot { box-shadow: inset 0 0 0 6px var(--c-accent); }
+.match__target.is-filled { box-shadow: inset 0 0 0 4px var(--c-good); }
+
+.match__piece {
+  cursor: grab;
+  touch-action: none;
+  transition: transform 0.2s ease;
+}
+
+.match__piece.is-dragging {
+  cursor: grabbing;
+  transition: none;
+  z-index: 30;
+  position: relative;
+}
+
+.match__piece.is-used { visibility: hidden; }
+.match__piece.is-rejected .art { animation: shake 0.3s ease; }
+
+/* ---------- memory ---------- */
+
+/* The grid derives its width from its height and the level's column count, so
+   the cells stay square and - crucially - the board can never grow taller than
+   the play area and push cards off the bottom of the screen. */
+.memory {
+  align-self: stretch;
+  width: auto;
+  max-width: 100%;
+  margin-inline: auto;
+  aspect-ratio: var(--cols, 4) / var(--rows, 4);
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 4), 1fr);
+  grid-template-rows: repeat(var(--rows, 4), 1fr);
+  gap: clamp(6px, 1.4vh, 16px);
+  padding: clamp(8px, 2vh, 20px);
+}
+
+.memory__card {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  background: transparent;
+  box-shadow: none;
+  perspective: 800px;
+  padding: 0;
+}
+
+.memory__inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 18px;
+  transition: transform 0.35s ease;
+  transform-style: preserve-3d;
+}
+
+.memory__card.is-open .memory__inner { transform: rotateY(180deg); }
+
+.memory__face {
+  position: absolute;
+  inset: 0;
+  border-radius: 18px;
+  backface-visibility: hidden;
+  display: grid;
+  place-items: center;
+  padding: 10%;
+  box-shadow: var(--shadow-sm);
+}
+
+.memory__face--back {
+  background: linear-gradient(140deg, var(--c-accent), var(--c-accent-dark));
+  color: #fff;
+}
+
+.memory__face--back .art { width: 55%; height: 55%; opacity: 0.85; }
+
+.memory__face--front {
+  background: var(--c-surface);
+  transform: rotateY(180deg);
+}
+
+.memory__card.is-matched .memory__face--front { box-shadow: 0 0 0 5px var(--c-good); }
+.memory__card.is-matched { animation: pop 0.35s ease; }
+
+@keyframes pop {
+  50% { transform: scale(1.08); }
+}
+
+/* ---------- win overlay ---------- */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  display: none;
+  place-items: center;
+  background: rgba(15, 23, 42, 0.55);
+  z-index: 40;
+}
+
+.overlay.is-active { display: grid; }
+
+.overlay__panel {
+  background: var(--c-surface);
+  border-radius: 34px;
+  padding: clamp(20px, 4vh, 44px) clamp(24px, 6vw, 72px);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(14px, 3vh, 28px);
+  box-shadow: var(--shadow);
+  animation: rise 0.35s ease;
+}
+
+@keyframes rise {
+  from { transform: translateY(40px) scale(0.9); opacity: 0; }
+}
+
+.overlay__title {
+  margin: 0;
+  font-size: clamp(26px, 5vw, 52px);
+  color: var(--c-accent-dark);
+}
+
+.overlay__actions {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.stars--big .is-earned .art { animation: star-in 0.4s backwards; }
+.stars--big .is-earned:nth-child(2) .art { animation-delay: 0.18s; }
+.stars--big .is-earned:nth-child(3) .art { animation-delay: 0.36s; }
+
+@keyframes star-in {
+  from { transform: scale(0) rotate(-120deg); opacity: 0; }
+}
+
+/* ---------- confetti ---------- */
+
+.confetti-canvas {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  display: none;
+  z-index: 50;
+}
+
+.confetti-canvas.is-visible { display: block; }
+
+/* ---------- accessibility / motion ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.001s !important; transition-duration: 0.001s !important; }
+}
+
+@media (max-width: 720px) {
+  .card-grid { grid-template-columns: 1fr; }
+  .level-grid { grid-template-columns: repeat(2, 1fr); }
+}
