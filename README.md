@@ -11,10 +11,10 @@ puzzles of their own. The game installs to the home screen and plays offline.
 
 | Game | What you do | Levels |
 | --- | --- | --- |
-| Jigsaw | Drag the pieces onto the board; they snap when they are close enough. On the last two levels pieces start turned — click one to rotate it, and it only snaps when it is upright | 4 → 6 → 9 → 12 → 16 → 20 → 25 pieces |
-| Shapes & Colours | Drag each shape onto the matching outline. Later levels add distractor shapes that fit nowhere, and the last level changes the rule: click the odd one out | 3 → 4 → 5 → 6 shapes, then distractors, then odd-one-out |
+| Jigsaw | Drag the pieces onto the board; they snap when they are close enough. On the last two levels pieces start turned — tap one to rotate it, and it only snaps when it is upright | 4 → 6 → 9 → 12 → 16 → 20 → 25 pieces |
+| Shapes & Colours | Drag each shape onto the matching outline. Later levels add distractor shapes that fit nowhere, and the last level changes the rule: tap the odd one out | 3 → 4 → 5 → 6 shapes, then distractors, then odd-one-out |
 | Memory | Flip cards and find the pairs; rated on how few moves you take | 2 → 3 → 6 → 8 → 10 pairs |
-| Sliding Picture | Slide tiles into the gap to rebuild the picture | 3×3 → 4×4 |
+| Sliding Picture | Slide tiles into the gap to rebuild the picture — tap a tile, or push it toward the gap | 3×3 → 4×4 |
 | What Comes Next | Read the pattern and pick the piece that continues it | 4 patterns, ABAB → ABCB |
 | Picture Jigsaw | The same jigsaw, cut from one of your own photos | 4 → 6 → 9 → 12 → 16 → 20 → 25 pieces |
 | Sliding Picture (photo) | The same sliding puzzle, made from one of your own photos | 3×3 → 4×4 |
@@ -72,8 +72,15 @@ then open <http://localhost:8000>. Any free port will do if 8000 is taken.
 
 ## Controls
 
-Mouse or trackpad only: drag pieces and shapes, click cards and buttons.
-Top-right: 🌐 language toggle, 🔈 sound on/off.
+Finger or mouse — both do the same things everywhere. Drag pieces and shapes,
+tap or click cards and buttons. A tile in the sliding puzzle moves either by a
+tap or by a short push toward the gap, and a turned jigsaw piece is straightened
+with a tap. Taps are forgiving: a few pixels of drift is still a tap, not a
+drag. Top-right: 🌐 language toggle, 🔈 sound on/off.
+
+On a phone the board keeps every browser gesture to itself, so a drag can never
+turn into a page scroll, a pull-to-refresh, a zoom or a "save image" menu. The
+menus still scroll when they have more than a screenful.
 
 ## Privacy
 
@@ -96,7 +103,8 @@ js/i18n.js          the ONE dictionary of display strings (he/en)
 js/storage.js       localStorage with try/catch + in-memory fallback
 js/audio.js         WebAudio cues, unlocked on the first user gesture
 js/util.js          shuffle / clamp / debounce / star scoring
-js/drag.js          shared pointer-drag helper (pointer capture)
+js/drag.js          shared pointer-drag helper (pointer capture, tap slop,
+                    suppression of the browser's own touch gestures)
 js/art.js           every picture: SVG icons and canvas scenes
 js/confetti.js      celebration burst on a full-screen canvas
 js/games/jigsaw.js
