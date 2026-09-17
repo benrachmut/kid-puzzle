@@ -152,7 +152,17 @@
     next: '<polygon points="30,16 84,50 30,84" fill="currentColor"/>',
     lock: '<rect x="22" y="44" width="56" height="42" rx="9" fill="currentColor"/>' +
       '<path d="M34 44V32a16 16 0 0 1 32 0v12" fill="none" stroke="currentColor" stroke-width="9"/>',
-    star: '<polygon points="50,6 62,38 96,38 68,58 79,92 50,72 21,92 32,58 4,38 38,38" fill="currentColor"/>'
+    star: '<polygon points="50,6 62,38 96,38 68,58 79,92 50,72 21,92 32,58 4,38 38,38" fill="currentColor"/>',
+    camera: '<path d="M10 32h18l8-10h28l8 10h18a6 6 0 0 1 6 6v40a6 6 0 0 1-6 6H10a6 6 0 0 1-6-6V38a6 6 0 0 1 6-6z" fill="currentColor"/>' +
+      '<circle cx="50" cy="58" r="18" fill="none" stroke="#fff" stroke-width="8"/>',
+    gallery: '<rect x="18" y="12" width="74" height="56" rx="8" fill="none" stroke="currentColor" stroke-width="8"/>' +
+      '<path d="M26 58l18-18 14 14 10-8 14 12" fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>' +
+      '<circle cx="40" cy="30" r="6" fill="currentColor"/>' +
+      '<path d="M8 30v52a6 6 0 0 0 6 6h60" fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round"/>',
+    trash: '<path d="M22 32h56l-5 52a8 8 0 0 1-8 7H35a8 8 0 0 1-8-7z" fill="currentColor"/>' +
+      '<path d="M14 26h72M38 26v-8a6 6 0 0 1 6-6h12a6 6 0 0 1 6 6v8" fill="none" stroke="currentColor" stroke-width="9" stroke-linecap="round"/>',
+    yes: '<path d="M18 52l22 22 42-46" fill="none" stroke="currentColor" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>',
+    no: '<path d="M24 24l52 52M76 24L24 76" fill="none" stroke="currentColor" stroke-width="13" stroke-linecap="round"/>'
   };
 
   function icon(id) {
@@ -299,11 +309,46 @@
     (SCENES[sceneId] || SCENES.meadow)(ctx, w, h);
   }
 
+  /* ---------- photographs brought in from the phone ---------- */
+
+  /**
+   * Cover-fits a photo into the w x h box: centre-crop, aspect preserved and
+   * never stretched - a squashed face is the first thing a child notices.
+   *
+   * The crop is derived from the box alone and not from the part of it being
+   * drawn, which is what makes the jigsaw ghost, each jigsaw piece and each
+   * slide tile - all of which paint this same box under a different ctx
+   * translation - slices of one and the same framing.
+   */
+  function paintPhoto(image, ctx, w, h) {
+    var scale = Math.max(w / image.width, h / image.height);
+    var drawW = image.width * scale;
+    var drawH = image.height * scale;
+    ctx.drawImage(image, (w - drawW) / 2, (h - drawH) / 2, drawW, drawH);
+  }
+
+  /**
+   * Chooses what fills a puzzle's picture box - the photo the shell handed the
+   * game, or the drawn scene - and hands it back with paintScene's signature so
+   * that the games keep one single painting path.
+   *
+   * A photo with no pixels (a canvas that never received a frame) falls back to
+   * the scene: cropping by NaN would paint an empty board the child cannot
+   * solve, and drawImage from a zero-sized canvas throws outright.
+   */
+  function picturePainter(sceneId, image) {
+    if (!image || !image.width || !image.height) {
+      return function (ctx, w, h) { paintScene(sceneId, ctx, w, h); };
+    }
+    return function (ctx, w, h) { paintPhoto(image, ctx, w, h); };
+  }
+
   KP.art = {
     shape: shape,
     picture: picture,
     icon: icon,
     paintScene: paintScene,
+    picturePainter: picturePainter,
     SHAPE_IDS: SHAPE_IDS,
     COLOR_IDS: COLOR_IDS,
     PICTURE_IDS: PICTURE_IDS
