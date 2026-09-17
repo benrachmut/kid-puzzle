@@ -28,6 +28,9 @@
 
   var TILE_PIXELS = 180;
   var SHUFFLE_MOVES = 200;
+  /* How long after a pointer gesture the click the browser synthesises from it
+     may still arrive. */
+  var COMPAT_CLICK_MS = 700;
 
   function create(mount, levelIndex, callbacks) {
     var level = LEVELS[util.clamp(levelIndex, 0, LEVELS.length - 1)];
@@ -139,6 +142,10 @@
     function pushTarget(position, dx, dy) {
       var col = position % cols;
       var row = Math.floor(position / cols);
+      /* A gesture that ends exactly where it began points nowhere. Without
+         this, dx === 0 falls through to "left" and a push the child visibly
+         took back would still move a tile. */
+      if (dx === 0 && dy === 0) return -1;
       if (Math.abs(dx) >= Math.abs(dy)) {
         if (dx > 0) return col < cols - 1 ? position + 1 : -1;
         return col > 0 ? position - 1 : -1;
@@ -152,12 +159,16 @@
      *
      * The pointer gesture is the authority, and the click the browser
      * synthesises after it is swallowed, so a single tap can never move two
-     * tiles. A keyboard activation arrives as a click with no gesture before
-     * it and still works. The flag is per tile, so a tile removed by its own
-     * move takes its flag with it and cannot leave a stale one behind.
+     * tiles. A keyboard activation - or a screen reader's click - arrives with
+     * no gesture just before it and still works.
+     *
+     * The gesture is remembered as a timestamp rather than a flag: a push that
+     * travels beyond the browser's own slop produces no compat click at all,
+     * and a flag would then stay raised and swallow the child's next keyboard
+     * press on that tile.
      */
     function attachTile(node, position) {
-      var fromPointer = false;
+      var handledAt = 0;
 
       node.addEventListener('pointerdown', function (ev) {
         var target = -1;
@@ -181,7 +192,7 @@
           onEnd: function (state) {
             node.classList.remove('is-pushing');
             node.style.transform = '';
-            fromPointer = true;
+            handledAt = Date.now();
             if (state.tap || target === gap) {
               onTileMove(position);
               return;
@@ -193,10 +204,7 @@
       });
 
       node.addEventListener('click', function () {
-        if (fromPointer) {
-          fromPointer = false;
-          return;
-        }
+        if (Date.now() - handledAt < COMPAT_CLICK_MS) return;
         onTileMove(position);
       });
     }

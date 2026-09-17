@@ -10,6 +10,12 @@
   back to memory rather than failing.
 - **Audio/graphics:** WebAudio, canvas and inline SVG. The only asset files in
   the project are the app icons in `icons/` (see below).
+- **Input:** pointer events only, one code path for finger and mouse, through
+  `js/drag.js` (pointer capture, a 12px tap radius, and suppression of the
+  browser's own touch gestures). Boards claim every touch inside them
+  (`touch-action: none`) and tap targets stay at 48px or more on a 360px-wide
+  phone; both are easy to break from CSS, so check a phone viewport after any
+  layout change.
 - **Offline:** `sw.js` at the repo root precaches the shell under a versioned
   cache name and serves it cache-first. It is registered from `index.html` and
   skipped on `file://`, so offline is always an upgrade and never a requirement.
@@ -47,10 +53,12 @@ These are deliberate, and follow from the brief (a dependency-free static toy):
   because nothing can fail across a boundary.
 - **No Zustand, PrimeReact or axios.** No framework is allowed here; state is
   plain module-scoped objects and there are no HTTP calls at all.
-- **No automated test layers.** The brief scoped one implementation pass; the
-  negative cases (bad drops, double clicks, resize mid-puzzle, missing
-  localStorage, language switch mid-puzzle) are handled in code and were checked
-  by hand in a browser.
+- **No automated test layers.** Nothing in the repo runs tests. The negative
+  cases (bad drops, double taps, a second finger mid-drag, resize or device
+  rotation mid-puzzle, missing `localStorage` or IndexedDB, a photo the browser
+  cannot decode, language switch mid-puzzle) are handled in code, and behaviour
+  is verified by driving a real browser — Chrome device emulation with touch,
+  and a mouse — rather than by a suite that ships.
 
 ## Kept from the shared standards
 

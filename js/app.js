@@ -26,8 +26,10 @@
   /* Bumped on every teardown, so a photo that finishes decoding after the child
      has already walked away is dropped instead of mounted into a dead screen. */
   var mountToken = 0;
-  /* Guards the delete confirmation against the double tap every child produces. */
-  var deleting = false;
+  /* Bumped on every picture the child picks, so a slow decode that lands after
+     they have picked again - or walked off the screen - cannot fire a reward
+     sound or write a note on a screen nobody is looking at. */
+  var importToken = 0;
 
   var dom = {};
 
@@ -265,13 +267,17 @@
       KP.audio.play('click');
       tile.classList.remove('is-confirming');
     });
+    /* Per tile, not per screen: a shared flag would also refuse a delete of a
+       *different* picture that is already confirmed, and swallow that tap
+       silently. */
+    var removing = false;
     yes.addEventListener('click', function () {
       /* Two taps on "yes" must not run two deletes and two re-renders. */
-      if (deleting) return;
-      deleting = true;
+      if (removing) return;
+      removing = true;
       KP.audio.play('drop');
       KP.photos.remove(record.id).then(function () {
-        deleting = false;
+        removing = false;
         renderPhotoGrid();
       });
     });
@@ -317,12 +323,24 @@
     input.value = '';
     if (!file) return;
 
+    importToken += 1;
+    var token = importToken;
+
+    /** Is this still the import the child is waiting on, on the screen for it? */
+    function stillWanted() {
+      return token === importToken &&
+        dom.screens.photos.classList.contains('is-active');
+    }
+
     setNote(dom.photoError, false);
     setNote(dom.photoWorking, true);
 
     KP.photos.decode(file).then(function (canvas) {
       return canvas ? KP.photos.save(canvas) : null;
     }).then(function (record) {
+      /* The picture is kept either way - only the reporting is abandoned. The
+         photo screen re-renders its grid whenever it is opened. */
+      if (!stillWanted()) return null;
       setNote(dom.photoWorking, false);
       if (!record) {
         setNote(dom.photoError, true);

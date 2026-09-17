@@ -103,7 +103,14 @@ self.addEventListener('fetch', function (event) {
         /* Offline and not in the cache. A navigation still has somewhere to go:
            the shell it was precached with. Anything else simply fails, which is
            what the browser would do anyway. */
-        if (request.mode === 'navigate') return caches.match('./index.html');
+        if (request.mode === 'navigate') {
+          /* Install tolerates a file that would not cache, so the shell itself
+             may be missing; respondWith(undefined) would throw a TypeError
+             instead of the network error the browser expects. */
+          return caches.match('./index.html').then(function (shell) {
+            return shell || Response.error();
+          });
+        }
         return Response.error();
       });
     })

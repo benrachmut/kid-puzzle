@@ -4,7 +4,6 @@
   "description": "Puzzles for a 6-year-old, in Hebrew and English, playable offline.",
   "lang": "he",
   "dir": "rtl",
-  "id": "./",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

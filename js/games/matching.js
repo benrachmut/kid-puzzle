@@ -255,8 +255,11 @@
           clearHot();
 
           /* A tap on a piece is not a drop attempt: these pieces are only
-             ever dragged, so a stray tap must cost the child nothing. */
-          if (state.tap) return;
+             ever dragged, so a stray tap must cost the child nothing. A finger
+             that ended on a target is another matter - in the compact phone
+             layout the rows are a few pixels apart, so a real drop can be
+             shorter than the tap radius. */
+          if (state.tap && !targetAt(state.x, state.y)) return;
 
           var target = targetAt(state.x, state.y);
           if (!target) {

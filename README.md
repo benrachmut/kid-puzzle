@@ -45,7 +45,9 @@ are refused with a friendly message rather than a broken puzzle.
 Served over HTTPS (or from localhost) the game is a PWA: Chrome on Android
 offers **Add to home screen**, Safari on iOS has **Share → Add to Home Screen**.
 It then opens full-screen without browser chrome, and works with no network at
-all — the service worker precaches every file on first visit.
+all — on the first visit the service worker precaches every file the game loads
+(the shell list in [`sw.js`](sw.js); the source SVGs are left out because
+nothing fetches them at runtime).
 
 ## How to run
 
@@ -198,7 +200,9 @@ and the launch after that is the new version.
 
 Any current Chrome, Edge, Firefox or Safari. Requires Pointer Events,
 `aspect-ratio`, CSS custom properties and WebAudio; if WebAudio is missing or
-blocked the game stays fully playable and silent.
+blocked the game stays fully playable and silent. The promises the Controls
+section makes about gestures rest on `touch-action` and `overscroll-behavior`;
+a browser without them still plays, it just lets a stray drag scroll the page.
 
 Everything the photo and install features need degrades rather than breaks: no
 service worker (or `file://`) means no offline, no IndexedDB means pictures last

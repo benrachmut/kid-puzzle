@@ -50,6 +50,14 @@
     return 'p' + Date.now().toString(36) + '-' + idCounter.toString(36);
   }
 
+  function closeQuietly(db) {
+    try {
+      db.close();
+    } catch (err) {
+      /* Already closing, or the connection died with the tab's storage. */
+    }
+  }
+
   function openDb() {
     if (dbPromise) return dbPromise;
 
@@ -59,7 +67,19 @@
       var timer = null;
 
       function finish(db) {
-        if (settled) return;
+        if (settled) {
+          /* The open succeeded after we had already given up - a phone under
+             memory pressure can take seconds. Nobody can ever use this handle
+             now, and leaving it open blocks the next version upgrade, so it is
+             closed; clearing dbPromise lets the following call try again
+             against a database we have just seen work. */
+          if (db) {
+            closeQuietly(db);
+            dbPromise = null;
+            persistent = true;
+          }
+          return;
+        }
         settled = true;
         if (timer) global.clearTimeout(timer);
         if (!db) persistent = false;
