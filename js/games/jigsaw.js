@@ -5,6 +5,12 @@
  * fixed at build time, because the window can be resized mid-puzzle and the
  * pieces must follow. Piece positions are therefore stored as state (placed or
  * tray-slot) rather than as pixel values that would go stale.
+ *
+ * The picture is either the level's drawn scene or, when the shell passes
+ * `callbacks.image`, a photo from the phone. Both are painted through one
+ * painter that fills the whole board box, so the ghost and every piece keep
+ * showing slices of the same framing - including after a relayout, which
+ * repaints them all from that painter again.
  */
 (function (global) {
   'use strict';
@@ -35,6 +41,7 @@
 
   function create(mount, levelIndex, callbacks) {
     var level = LEVELS[util.clamp(levelIndex, 0, LEVELS.length - 1)];
+    var paintPicture = KP.art.picturePainter(level.scene, callbacks.image);
     var cols = level.cols;
     var rows = level.rows;
     var count = cols * rows;
@@ -107,7 +114,7 @@
       ctx.clearRect(0, 0, w, h);
       ctx.save();
       ctx.translate(-offsetX, -offsetY);
-      KP.art.paintScene(level.scene, ctx, fullW, fullH);
+      paintPicture(ctx, fullW, fullH);
       ctx.restore();
     }
 

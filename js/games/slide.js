@@ -6,6 +6,10 @@
  * state, which is what guarantees it is solvable - a random permutation of a
  * 15-puzzle is unsolvable half the time, and an unsolvable board is an
  * unwinnable game for a child who cannot be told why.
+ *
+ * The picture is either the level's drawn scene or, when the shell passes
+ * `callbacks.image`, a photo from the phone. Either way one painter fills the
+ * whole tile grid, so all the tiles are slices of a single framing.
  */
 (function (global) {
   'use strict';
@@ -25,6 +29,7 @@
 
   function create(mount, levelIndex, callbacks) {
     var level = LEVELS[util.clamp(levelIndex, 0, LEVELS.length - 1)];
+    var paintPicture = KP.art.picturePainter(level.scene, callbacks.image);
     var cols = level.cols;
     var rows = level.rows;
     var size = cols * rows;
@@ -64,7 +69,7 @@
         var ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.translate(-(id % cols) * TILE_PIXELS, -Math.floor(id / cols) * TILE_PIXELS);
-          KP.art.paintScene(level.scene, ctx, TILE_PIXELS * cols, TILE_PIXELS * rows);
+          paintPicture(ctx, TILE_PIXELS * cols, TILE_PIXELS * rows);
         }
         tileCanvases.push(canvas);
       }
