@@ -19,7 +19,12 @@
      reuse the jigsaw and slide ladders without sharing their stars. */
   var PHOTO_TRACKS = { photoJigsaw: 'jigsaw', photoSlide: 'slide' };
   var PHOTO_TRACK_ORDER = ['photoJigsaw', 'photoSlide'];
-  var HOME_PREVIEW_SIZE = 160;
+  /* The resolution the menu previews are painted at. The card sizes the artwork
+     from the viewport (.game-card__art is min(20vh, 100%)), so the largest cell
+     the layout can ask for is about 140 CSS px on a tall desktop screen;
+     painting a quadrant at that size keeps the preview sharp there without
+     making a phone's canvases pointlessly large. */
+  var HOME_PREVIEW_SIZE = 280;
 
   var progress = KP.storage.load();
   var current = { gameId: null, levelIndex: 0, instance: null, photo: null };
@@ -116,7 +121,7 @@
   }
 
   /**
-   * Paints one quadrant of a jigsaw scene at a fixed size for the home card.
+   * Paints one quadrant of a jigsaw scene for the home card.
    * Drawn rather than cached as an image so the menu needs no asset files.
    */
   function quadrantCanvas(scene, col, row) {
@@ -125,11 +130,10 @@
     var size = HOME_PREVIEW_SIZE / 2;
     canvas.width = Math.round(size * dpr);
     canvas.height = Math.round(size * dpr);
-    /* The backing store is in device pixels, so the CSS size has to be stated
-       explicitly: without it a retina screen lays the canvas out at 2x and the
-       four quadrants overflow the card. */
-    canvas.style.width = size + 'px';
-    canvas.style.height = size + 'px';
+    /* The backing store is in device pixels; the CSS size comes from the
+       stylesheet (.game-card__art canvas), which sizes the quadrant to its grid
+       cell. An explicit pixel size here would not shrink with the card and
+       would push the artwork out of the menu on a phone. */
     var ctx = canvas.getContext('2d');
     if (!ctx) return canvas;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
