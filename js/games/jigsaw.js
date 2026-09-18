@@ -47,8 +47,9 @@
   /** A drop counts as "close enough" within this fraction of a piece. */
   var SNAP_FACTOR = 0.7;
   /** Side of the hold-to-peek button, mirroring .jig-peek in the stylesheet.
-      52px, so it clears a 48px finger target without covering the board. */
-  var PEEK_SIZE = 52;
+      48px: a finger target exactly, and no more of the board's corner cell
+      covered than that needs. */
+  var PEEK_SIZE = 48;
 
   /* ---------- tabs and blanks ---------- */
 
@@ -146,6 +147,22 @@
    */
   var TRAY_PITCH = 1.28;
 
+  /** A piece's canvas, in cells: its own cell plus a tab's reach either side. */
+  var PIECE_SPAN = 1 + TAB_OVERHANG * 2;
+
+  /**
+   * How much room `n` tray cells need, in cells.
+   *
+   * The pieces in between may overlap at the pitch, but the two at the ends
+   * still have a whole canvas to fit, so the row is one span wide plus a pitch
+   * for every piece after the first. Measuring the row by the pitch alone let
+   * the outermost pieces draw their tabs outside the tray - over the board on
+   * a desktop 2x2, where the tray band is shorter than a single canvas.
+   */
+  function traySpan(n) {
+    return (n - 1) * TRAY_PITCH + PIECE_SPAN;
+  }
+
   /**
    * Picks the tray grid that leaves the pieces as large as possible.
    *
@@ -159,8 +176,8 @@
     for (var rows = 1; rows <= count; rows++) {
       var cols = Math.ceil(count / rows);
       var scale = Math.min(
-        trayW / (cols * pieceW * TRAY_PITCH),
-        trayH / (rows * pieceH * TRAY_PITCH)
+        trayW / (traySpan(cols) * pieceW),
+        trayH / (traySpan(rows) * pieceH)
       );
       if (scale > best.scale) best = { rows: rows, cols: cols, scale: scale };
     }
@@ -347,15 +364,34 @@
       ctx.stroke();
     }
 
+    /**
+     * Where the piece resting at `trayIndex` sits, as its cell's top-left.
+     *
+     * The tray grid is pitched in cells, but a piece is drawn on a canvas 1.6
+     * cells wide. traySpan keeps the scale small enough for those canvases to
+     * fit, but the scale has a floor of 0.3 under it, and below that floor a
+     * piece in an outer row or column would draw its tabs outside the tray -
+     * over the board above it, or off the edge of the stage. Its centre is
+     * therefore pulled far enough in for the whole canvas to land inside the
+     * tray; when the tray is narrower than a canvas there is nothing to pull
+     * it to and it simply stays centred.
+     */
     function traySlotPosition(trayIndex) {
       var cellW = geo.trayW / geo.trayCols;
       var cellH = geo.trayH / geo.trayRows;
       var col = trayIndex % geo.trayCols;
       var row = Math.floor(trayIndex / geo.trayCols);
-      return {
-        left: geo.trayX + cellW * (col + 0.5) - geo.pieceW / 2,
-        top: geo.trayTop + cellH * (row + 0.5) - geo.pieceH / 2
-      };
+      var reachX = geo.pieceW * (0.5 + TAB_OVERHANG) * geo.trayScale;
+      var reachY = geo.pieceH * (0.5 + TAB_OVERHANG) * geo.trayScale;
+      var centerX = geo.trayX + cellW * (col + 0.5);
+      var centerY = geo.trayTop + cellH * (row + 0.5);
+      if (geo.trayW >= reachX * 2) {
+        centerX = util.clamp(centerX, geo.trayX + reachX, geo.trayX + geo.trayW - reachX);
+      }
+      if (geo.trayH >= reachY * 2) {
+        centerY = util.clamp(centerY, geo.trayTop + reachY, geo.trayTop + geo.trayH - reachY);
+      }
+      return { left: centerX - geo.pieceW / 2, top: centerY - geo.pieceH / 2 };
     }
 
     function slotPosition(piece) {
@@ -435,8 +471,8 @@
         geo.trayCols = Math.ceil(count / geo.trayRows);
         geo.trayScale = util.clamp(
           Math.min(
-            geo.trayW / (geo.trayCols * geo.pieceW * TRAY_PITCH),
-            geo.trayH / (geo.trayRows * geo.pieceH * TRAY_PITCH)
+            geo.trayW / (traySpan(geo.trayCols) * geo.pieceW),
+            geo.trayH / (traySpan(geo.trayRows) * geo.pieceH)
           ),
           0.3,
           1
@@ -480,9 +516,18 @@
       /* Otherwise the press starts a native drag or a text selection, and the
          pointerup that ends the peek never arrives. */
       ev.preventDefault();
+      /* Holding the pointer keeps the release on this button wherever the hand
+         has wandered to by then - including the 2px the button drops under
+         :active, which on its own was enough to slide out from under a press
+         that landed on its top edge and cut the peek short. */
+      try {
+        peekButton.setPointerCapture(ev.pointerId);
+      } catch (err) {
+        /* Capture is the belt; pointerleave below is the braces. */
+      }
       showPeek();
     });
-    /* pointerleave covers a mouse that slides off the button still held down;
+    /* pointerleave is the fallback for a browser that refused the capture;
        blur covers the keyboard losing the button mid-press. */
     ['pointerup', 'pointercancel', 'pointerleave', 'blur'].forEach(function (name) {
       peekButton.addEventListener(name, hidePeek);
@@ -533,8 +578,14 @@
         return ctx.getImageData(x, y, 1, 1).data[3] > 24;
       } catch (err) {
         /* A browser that refuses the read (a tainted canvas) must not make the
-           piece unpickable; fall back to the plain rectangle. */
-        return true;
+           piece unpickable. Falling back to the piece's own cell rather than
+           to the whole canvas matters: the canvas is 1.6 cells wide, so
+           treating all of it as painted would hand presses to a neighbour
+           whose body is most of a cell away from the finger. */
+        return point.x >= geo.pieceW * TAB_OVERHANG &&
+          point.y >= geo.pieceH * TAB_OVERHANG &&
+          point.x <= geo.pieceW * (1 + TAB_OVERHANG) &&
+          point.y <= geo.pieceH * (1 + TAB_OVERHANG);
       }
     }
 
@@ -590,12 +641,18 @@
 
     function onPointerDown(ev, piece) {
       if (finished) return;
+      /* The drag is captured on the node the press actually landed on, even
+         when the paint under the finger hands the gesture to a different
+         piece: KP.drag falls back to listening on that node if the browser
+         refuses pointer capture, and a node the events never reach would
+         strand the gesture - and with it every later drag. */
+      var pressedNode = ev.currentTarget || piece.node;
       var pressed = pieceAt(ev.clientX, ev.clientY);
       if (pressed) piece = pressed;
       if (piece.placed) return;
       var origin = { left: piece.left, top: piece.top };
 
-      var started = KP.drag.begin(ev, piece.node, {
+      var started = KP.drag.begin(ev, pressedNode, {
         onStart: function () {
           draggingPiece = piece;
           piece.node.classList.add('is-dragging');

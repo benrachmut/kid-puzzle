@@ -312,15 +312,23 @@ body {
 .jig-board.is-peeking .jig-board__peek { opacity: 1; }
 
 /* Above placed pieces so it stays pressable, below a piece being dragged so it
-   never steals the eye from what the child is moving. */
+   never steals the eye from what the child is moving. It sits over the board's
+   corner cell - the one place that is the same in every layout and in both
+   reading directions - so it is only as big as a finger needs and translucent
+   enough for that cell's outline, and later its piece, to read through it. */
 .jig-peek {
   position: absolute;
   z-index: 20;
-  width: 52px;
-  height: 52px;
-  padding: 12px;
-  background: rgba(255, 255, 255, 0.92);
+  width: 48px;
+  height: 48px;
+  padding: 11px;
+  background: rgba(255, 255, 255, 0.75);
 }
+
+/* A hold control, not a click: the 2px :active drop would slide the button out
+   from under a press landing on its top edge and cut the peek short. */
+.jig-peek:hover,
+.jig-peek:active { transform: none; }
 
 .jig-slot {
   position: absolute;
