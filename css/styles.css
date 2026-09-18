@@ -298,10 +298,28 @@ body {
   background: #f8fafc;
 }
 
-.jig-board__ghost {
+/* The picture, shown only while the peek button is held. It lives inside the
+   board, so pieces already placed cover their own part of it and the child
+   sees the shape of what is still missing. */
+.jig-board__peek {
   position: absolute;
   inset: 0;
-  opacity: 0.18;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.16s ease;
+}
+
+.jig-board.is-peeking .jig-board__peek { opacity: 1; }
+
+/* Above placed pieces so it stays pressable, below a piece being dragged so it
+   never steals the eye from what the child is moving. */
+.jig-peek {
+  position: absolute;
+  z-index: 20;
+  width: 52px;
+  height: 52px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.92);
 }
 
 .jig-slot {
@@ -310,30 +328,29 @@ body {
   border-radius: 6px;
 }
 
+/* A piece is its cell: the canvas inside it is wider, overflows on every side
+   and carries the tabs, which is why nothing here may clip or round it - and
+   why the lift has to be a drop-shadow that follows the cut shape rather than
+   a box-shadow around the rectangle. */
 .jig-piece {
   position: absolute;
-  border-radius: 8px;
-  overflow: hidden;
   cursor: grab;
-  box-shadow: var(--shadow-sm);
   transition: transform 0.18s ease, left 0.25s ease, top 0.25s ease;
   transform-origin: center center;
   touch-action: none;
 }
 
-.jig-piece canvas { display: block; width: 100%; height: 100%; }
+.jig-piece canvas { position: absolute; display: block; }
 
 .jig-piece.is-dragging {
   cursor: grabbing;
   transition: none;
   z-index: 30;
-  box-shadow: 0 14px 26px rgba(15, 23, 42, 0.35);
+  filter: drop-shadow(0 12px 12px rgba(15, 23, 42, 0.4));
 }
 
 .jig-piece.is-placed {
   cursor: default;
-  box-shadow: none;
-  border-radius: 0;
   z-index: 5;
 }
 

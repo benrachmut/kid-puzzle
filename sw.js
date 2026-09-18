@@ -12,7 +12,7 @@
  */
 
 /* Bump this on every deploy. Nothing else invalidates a cached file. */
-var CACHE_VERSION = 'v2';
+var CACHE_VERSION = 'v3';
 var CACHE_NAME = 'kid-puzzle-' + CACHE_VERSION;
 
 /* Relative paths so the same worker serves file-for-file under a project page

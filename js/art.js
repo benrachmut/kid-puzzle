@@ -162,7 +162,10 @@
     trash: '<path d="M22 32h56l-5 52a8 8 0 0 1-8 7H35a8 8 0 0 1-8-7z" fill="currentColor"/>' +
       '<path d="M14 26h72M38 26v-8a6 6 0 0 1 6-6h12a6 6 0 0 1 6 6v8" fill="none" stroke="currentColor" stroke-width="9" stroke-linecap="round"/>',
     yes: '<path d="M18 52l22 22 42-46" fill="none" stroke="currentColor" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>',
-    no: '<path d="M24 24l52 52M76 24L24 76" fill="none" stroke="currentColor" stroke-width="13" stroke-linecap="round"/>'
+    no: '<path d="M24 24l52 52M76 24L24 76" fill="none" stroke="currentColor" stroke-width="13" stroke-linecap="round"/>',
+    /* Hold-to-peek: the one control that shows a jigsaw its own picture. */
+    eye: '<path d="M6 50c12-20 26-31 44-31s32 11 44 31c-12 20-26 31-44 31S18 70 6 50z" fill="none" stroke="currentColor" stroke-width="8" stroke-linejoin="round"/>' +
+      '<circle cx="50" cy="50" r="13" fill="currentColor"/>'
   };
 
   function icon(id) {

@@ -11,12 +11,12 @@ puzzles of their own. The game installs to the home screen and plays offline.
 
 | Game | What you do | Levels |
 | --- | --- | --- |
-| Jigsaw | Drag the pieces onto the board; they snap when they are close enough. On the last two levels pieces start turned — tap one to rotate it, and it only snaps when it is upright | 4 → 6 → 9 → 12 → 16 → 20 → 25 pieces |
+| Jigsaw | Drag the interlocking pieces onto the empty board; they snap when they are close enough. The board shows slot outlines only — hold the eye button in its corner to see the picture for as long as you hold it. On the last two levels pieces start turned — tap one to rotate it, and it only snaps when it is upright | 4 → 6 → 9 → 12 → 16 → 20 → 25 pieces |
 | Shapes & Colours | Drag each shape onto the matching outline. Later levels add distractor shapes that fit nowhere, and the last level changes the rule: tap the odd one out | 3 → 4 → 5 → 6 shapes, then distractors, then odd-one-out |
 | Memory | Flip cards and find the pairs; rated on how few moves you take | 2 → 3 → 6 → 8 → 10 pairs |
 | Sliding Picture | Slide tiles into the gap to rebuild the picture — tap a tile, or push it toward the gap | 3×3 → 4×4 |
 | What Comes Next | Read the pattern and pick the piece that continues it | 4 patterns, ABAB → ABCB |
-| Picture Jigsaw | The same jigsaw, cut from one of your own photos | 4 → 6 → 9 → 12 → 16 → 20 → 25 pieces |
+| Picture Jigsaw | The same interlocking jigsaw, cut from one of your own photos | 4 → 6 → 9 → 12 → 16 → 20 → 25 pieces |
 | Sliding Picture (photo) | The same sliding puzzle, made from one of your own photos | 3×3 → 4×4 |
 
 The two photo tracks keep one set of stars each, shared across every picture,

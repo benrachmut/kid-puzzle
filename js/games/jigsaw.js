@@ -1,5 +1,5 @@
 /**
- * Jigsaw: drag pieces of a drawn scene onto the board.
+ * Jigsaw: drag interlocking pieces onto the board.
  *
  * Geometry is recomputed from the stage size on every layout instead of being
  * fixed at build time, because the window can be resized mid-puzzle and the
@@ -8,9 +8,14 @@
  *
  * The picture is either the level's drawn scene or, when the shell passes
  * `callbacks.image`, a photo from the phone. Both are painted through one
- * painter that fills the whole board box, so the ghost and every piece keep
- * showing slices of the same framing - including after a relayout, which
- * repaints them all from that painter again.
+ * painter that fills the whole board box, so every piece keeps showing a slice
+ * of the same framing - including after a relayout, which repaints them all
+ * from that painter again.
+ *
+ * The board itself stays empty: it shows slot outlines and nothing else, so the
+ * child solves the puzzle from the pieces rather than by tracing a picture
+ * printed underneath them. The peek button in its corner shows the picture for
+ * as long as it is held, which is the paper-box-lid version of the same help.
  */
 (function (global) {
   'use strict';
@@ -41,6 +46,78 @@
   var BOARD_WIDTH_SHARE = 0.6;
   /** A drop counts as "close enough" within this fraction of a piece. */
   var SNAP_FACTOR = 0.7;
+  /** Side of the hold-to-peek button, mirroring .jig-peek in the stylesheet.
+      52px, so it clears a 48px finger target without covering the board. */
+  var PEEK_SIZE = 52;
+
+  /* ---------- tabs and blanks ---------- */
+
+  /**
+   * How far outside its own cell a piece's canvas reaches, as a fraction of the
+   * cell. Every piece gets the same canvas box whether or not a given side
+   * carries a tab, so one piece size serves the whole board and every position,
+   * snap and tray calculation can go on working in whole cells.
+   * It is a little more than the tallest point of TAB_PROFILE, to leave room
+   * for the outline stroke drawn on top of the shape.
+   */
+  var TAB_OVERHANG = 0.3;
+
+  /**
+   * One tab, as (along the edge, out from the edge) pairs in units of the edge
+   * length: a starting point followed by three cubic segments - up through the
+   * narrow neck, over the round knob, and back down the far side.
+   *
+   * It is deliberately symmetric about the middle of the edge. The piece on the
+   * other side of that edge walks it backwards and with the opposite sign, and
+   * the symmetry is what makes it trace exactly the same curve, so the two
+   * pieces interlock instead of merely almost fitting.
+   */
+  var TAB_PROFILE = [
+    [0.38, 0],
+    [0.44, 0.015], [0.30, 0.152], [0.38, 0.213],
+    [0.455, 0.273], [0.545, 0.273], [0.62, 0.213],
+    [0.70, 0.152], [0.56, 0.015], [0.62, 0]
+  ];
+
+  /**
+   * Adds one side of a piece to the current path, from corner A to corner B.
+   * `sign` is 0 for a straight board edge, 1 for a tab and -1 for a blank.
+   *
+   * Sides are walked clockwise, so turning the direction of travel a quarter
+   * turn anticlockwise always points out of the piece; a blank is the same
+   * curve pointing the other way.
+   */
+  function edgeTo(ctx, ax, ay, bx, by, sign) {
+    if (!sign) {
+      ctx.lineTo(bx, by);
+      return;
+    }
+    var len = Math.hypot(bx - ax, by - ay);
+    var ux = (bx - ax) / len;
+    var uy = (by - ay) / len;
+    var nx = uy * sign;
+    var ny = -ux * sign;
+
+    function at(index) {
+      var along = TAB_PROFILE[index][0] * len;
+      var out = TAB_PROFILE[index][1] * len;
+      return [ax + ux * along + nx * out, ay + uy * along + ny * out];
+    }
+
+    var start = at(0);
+    ctx.lineTo(start[0], start[1]);
+    for (var i = 1; i < TAB_PROFILE.length; i += 3) {
+      var c1 = at(i);
+      var c2 = at(i + 1);
+      var to = at(i + 2);
+      ctx.bezierCurveTo(c1[0], c1[1], c2[0], c2[1], to[0], to[1]);
+    }
+    ctx.lineTo(bx, by);
+  }
+
+  function mediaMatches(query) {
+    return !!(global.matchMedia && global.matchMedia(query).matches);
+  }
 
   /* Phone layouts. The desktop and wide-window layout is deliberately left
      alone - a mouse has no trouble with a small tray piece - so these are
@@ -56,9 +133,18 @@
   var PHONE_LANDSCAPE =
     '(max-width: 1024px) and (max-height: 520px) and (orientation: landscape)';
 
-  function mediaMatches(query) {
-    return !!(global.matchMedia && global.matchMedia(query).matches);
-  }
+  /**
+   * Distance between two tray cells, in cells.
+   *
+   * A piece is drawn on a canvas 1.6 cells wide, so tray neighbours overlap at
+   * anything below that. They are left to overlap on purpose: spreading them
+   * far enough apart to clear every tab would shrink the 25-piece tray on a
+   * 360px phone below a finger-sized target, which matters far more than a
+   * tidy grid - and a heap of pieces with their tabs interleaved is what a real
+   * puzzle box looks like anyway. Presses are resolved against the pieces'
+   * painted pixels (see pieceAt), so the overlap never costs the child a grab.
+   */
+  var TRAY_PITCH = 1.28;
 
   /**
    * Picks the tray grid that leaves the pieces as large as possible.
@@ -72,9 +158,10 @@
     var best = { rows: 1, cols: count, scale: 0 };
     for (var rows = 1; rows <= count; rows++) {
       var cols = Math.ceil(count / rows);
-      /* The 1.1 leaves a tenth of a piece as breathing space between cells, so
-         neighbouring pieces in the tray never look like one placed pair. */
-      var scale = Math.min(trayW / (cols * pieceW * 1.1), trayH / (rows * pieceH * 1.1));
+      var scale = Math.min(
+        trayW / (cols * pieceW * TRAY_PITCH),
+        trayH / (rows * pieceH * TRAY_PITCH)
+      );
       if (scale > best.scale) best = { rows: rows, cols: cols, scale: scale };
     }
     return best;
@@ -89,9 +176,17 @@
 
     var stage = util.el('div', 'stage stage--ltr', { role: 'group', 'data-i18n-aria': 'jigsaw.board' });
     var board = util.el('div', 'jig-board');
-    var ghost = util.el('canvas', 'jig-board__ghost');
-    board.appendChild(ghost);
+    /* Sits inside the board, so pieces already placed stay on top of it: a peek
+       then shows the child exactly the part still missing. */
+    var peekCanvas = util.el('canvas', 'jig-board__peek');
+    board.appendChild(peekCanvas);
     stage.appendChild(board);
+
+    var peekButton = util.el('button', 'btn btn--icon jig-peek', {
+      type: 'button', 'data-i18n-aria': 'jigsaw.peek'
+    });
+    peekButton.innerHTML = KP.art.icon('eye');
+    stage.appendChild(peekButton);
     mount.appendChild(stage);
 
     var geo = { stageW: 0, stageH: 0, boardX: 0, boardY: 0, boardW: 0, boardH: 0,
@@ -103,6 +198,40 @@
     var mistakes = 0;
     var finished = false;
     var winTimer = null;
+
+    /**
+     * Draws the board's tabs and blanks, once.
+     *
+     * Each inner edge is settled here and then kept on the two pieces that
+     * share it, so a relayout - a resize, a device rotation, a language switch -
+     * repaints the same shapes instead of re-cutting the puzzle under the
+     * child's hand. Outer edges of the board get 0, a straight side.
+     */
+    function cutEdges() {
+      var vertical = [];
+      var horizontal = [];
+      var r, c;
+      for (r = 0; r < rows; r++) {
+        vertical[r] = [];
+        for (c = 0; c < cols - 1; c++) vertical[r][c] = Math.random() < 0.5 ? 1 : -1;
+      }
+      for (r = 0; r < rows - 1; r++) {
+        horizontal[r] = [];
+        for (c = 0; c < cols; c++) horizontal[r][c] = Math.random() < 0.5 ? 1 : -1;
+      }
+      /* A tab on one piece is the same edge negated on its neighbour, which is
+         precisely a blank of the same shape. */
+      return function (col, row) {
+        return {
+          top: row === 0 ? 0 : -horizontal[row - 1][col],
+          right: col === cols - 1 ? 0 : vertical[row][col],
+          bottom: row === rows - 1 ? 0 : horizontal[row][col],
+          left: col === 0 ? 0 : -vertical[row][col - 1]
+        };
+      };
+    }
+
+    var edgesFor = cutEdges();
 
     /* Tray order is shuffled once so the same piece keeps its resting place
        across resizes; re-shuffling on layout would make pieces jump around. */
@@ -116,10 +245,13 @@
       node.appendChild(canvas);
       stage.appendChild(node);
 
+      var col = slotIndex % cols;
+      var row = Math.floor(slotIndex / cols);
       var piece = {
         slot: slotIndex,
-        col: slotIndex % cols,
-        row: Math.floor(slotIndex / cols),
+        col: col,
+        row: row,
+        edges: edgesFor(col, row),
         trayIndex: trayIndex,
         placed: false,
         node: node,
@@ -141,22 +273,78 @@
       slotNodes.push(slotNode);
     }
 
-    /** Device-pixel-aware canvas painting keeps the art sharp on retina laptops. */
-    function paintCanvas(canvas, w, h, offsetX, offsetY, fullW, fullH) {
-      if (w <= 0 || h <= 0) return;
+    /** Traces one piece's outline, with its cell's top-left corner at (x, y). */
+    function tracePiece(ctx, piece, x, y, w, h) {
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      edgeTo(ctx, x, y, x + w, y, piece.edges.top);
+      edgeTo(ctx, x + w, y, x + w, y + h, piece.edges.right);
+      edgeTo(ctx, x + w, y + h, x, y + h, piece.edges.bottom);
+      edgeTo(ctx, x, y + h, x, y, piece.edges.left);
+      ctx.closePath();
+    }
+
+    /** Device-pixel-aware sizing keeps the art sharp on retina laptops. */
+    function sizeCanvas(canvas, w, h) {
       var dpr = global.devicePixelRatio || 1;
       canvas.width = Math.round(w * dpr);
       canvas.height = Math.round(h * dpr);
       canvas.style.width = w + 'px';
       canvas.style.height = h + 'px';
       var ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, w, h);
+      }
+      return ctx;
+    }
+
+    /** The whole picture, for the hold-to-peek overlay. */
+    function paintPeek() {
+      if (geo.boardW <= 0 || geo.boardH <= 0) return;
+      var ctx = sizeCanvas(peekCanvas, geo.boardW, geo.boardH);
+      if (ctx) paintPicture(ctx, geo.boardW, geo.boardH);
+    }
+
+    /**
+     * Paints one piece: its slice of the picture, clipped to its tab shape.
+     *
+     * The canvas is bigger than the cell on every side, and the cell's corner
+     * sits at (overhang, overhang) inside it, so a tab can carry the pixels of
+     * the neighbouring cell it reaches into. The picture is painted in board
+     * coordinates under a translation, which is what keeps every piece a slice
+     * of one and the same framing.
+     */
+    function paintPiece(piece) {
+      var w = geo.pieceW;
+      var h = geo.pieceH;
+      if (w <= 0 || h <= 0) return;
+      var ox = w * TAB_OVERHANG;
+      var oy = h * TAB_OVERHANG;
+      var ctx = sizeCanvas(piece.canvas, w + ox * 2, h + oy * 2);
       if (!ctx) return;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, w, h);
+      piece.canvas.style.left = -ox + 'px';
+      piece.canvas.style.top = -oy + 'px';
+
+      tracePiece(ctx, piece, ox, oy, w, h);
       ctx.save();
-      ctx.translate(-offsetX, -offsetY);
-      paintPicture(ctx, fullW, fullH);
+      ctx.clip();
+      ctx.translate(ox - piece.col * w, oy - piece.row * h);
+      paintPicture(ctx, geo.boardW, geo.boardH);
       ctx.restore();
+
+      /* The picture painters begin paths of their own, so the outline has to be
+         traced again rather than reusing the one that was clipped with.
+         Two strokes: a light one so a piece reads against the picture of the
+         pieces around it, a thin dark one so it reads against the empty board. */
+      tracePiece(ctx, piece, ox, oy, w, h);
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.lineWidth = Math.max(1.5, w * 0.03);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(15, 23, 42, 0.3)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
     }
 
     function traySlotPosition(trayIndex) {
@@ -177,6 +365,10 @@
       };
     }
 
+    /* Piece positions are the position of the piece's *cell*, never of its
+       wider canvas: snapping, the tray grid and the drop distance all stay in
+       whole cells, and the tabs are purely something the canvas draws around
+       that cell. */
     function moveTo(piece, left, top) {
       piece.left = left;
       piece.top = top;
@@ -243,8 +435,8 @@
         geo.trayCols = Math.ceil(count / geo.trayRows);
         geo.trayScale = util.clamp(
           Math.min(
-            geo.trayW / (geo.trayCols * geo.pieceW * 1.1),
-            geo.trayH / (geo.trayRows * geo.pieceH * 1.1)
+            geo.trayW / (geo.trayCols * geo.pieceW * TRAY_PITCH),
+            geo.trayH / (geo.trayRows * geo.pieceH * TRAY_PITCH)
           ),
           0.3,
           1
@@ -255,7 +447,14 @@
       board.style.top = geo.boardY + 'px';
       board.style.width = geo.boardW + 'px';
       board.style.height = geo.boardH + 'px';
-      paintCanvas(ghost, geo.boardW, geo.boardH, 0, 0, geo.boardW, geo.boardH);
+      paintPeek();
+
+      /* Inside the board's top corner: the stage has no margin to spare once
+         the board is as wide as it can be, and the corner is the one place
+         that is the same in every layout and in both reading directions. */
+      peekButton.style.left =
+        Math.max(geo.boardX, geo.boardX + geo.boardW - PEEK_SIZE - 8) + 'px';
+      peekButton.style.top = (geo.boardY + 8) + 'px';
 
       slotNodes.forEach(function (node, index) {
         node.style.left = (index % cols) * geo.pieceW + 'px';
@@ -267,13 +466,102 @@
       pieces.forEach(function (piece) {
         piece.node.style.width = geo.pieceW + 'px';
         piece.node.style.height = geo.pieceH + 'px';
-        paintCanvas(
-          piece.canvas, geo.pieceW, geo.pieceH,
-          piece.col * geo.pieceW, piece.row * geo.pieceH,
-          geo.boardW, geo.boardH
-        );
+        paintPiece(piece);
         if (piece !== draggingPiece) restPiece(piece);
       });
+    }
+
+    /* ---------- hold to peek ---------- */
+
+    function showPeek() { board.classList.add('is-peeking'); }
+    function hidePeek() { board.classList.remove('is-peeking'); }
+
+    peekButton.addEventListener('pointerdown', function (ev) {
+      /* Otherwise the press starts a native drag or a text selection, and the
+         pointerup that ends the peek never arrives. */
+      ev.preventDefault();
+      showPeek();
+    });
+    /* pointerleave covers a mouse that slides off the button still held down;
+       blur covers the keyboard losing the button mid-press. */
+    ['pointerup', 'pointercancel', 'pointerleave', 'blur'].forEach(function (name) {
+      peekButton.addEventListener(name, hidePeek);
+    });
+    peekButton.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') showPeek();
+    });
+    peekButton.addEventListener('keyup', hidePeek);
+
+    /* ---------- picking a piece up ---------- */
+
+    /**
+     * Where a point on the stage falls on a piece's canvas, or null if it falls
+     * outside it. Undoes the piece's scale and quarter turn, both of which the
+     * canvas is carried through by the node's transform.
+     */
+    function toCanvasPoint(piece, x, y) {
+      var w = geo.pieceW;
+      var h = geo.pieceH;
+      /* Only pieces resting in the tray are ever tested, and those are exactly
+         the ones drawn at tray scale. */
+      var scale = geo.trayScale;
+      if (scale <= 0 || w <= 0 || h <= 0) return null;
+      var dx = (x - (piece.left + w / 2)) / scale;
+      var dy = (y - (piece.top + h / 2)) / scale;
+      var turns = ((piece.rot % 4) + 4) % 4;
+      var lx = dx;
+      var ly = dy;
+      if (turns === 1) { lx = dy; ly = -dx; }
+      else if (turns === 2) { lx = -dx; ly = -dy; }
+      else if (turns === 3) { lx = -dy; ly = dx; }
+      var ox = w * TAB_OVERHANG;
+      var oy = h * TAB_OVERHANG;
+      var px = lx + w / 2 + ox;
+      var py = ly + h / 2 + oy;
+      if (px < 0 || py < 0 || px > w + ox * 2 || py > h + oy * 2) return null;
+      return { x: px, y: py };
+    }
+
+    /** True when the piece has actually painted something at that canvas point. */
+    function isPaintedAt(piece, point) {
+      var ctx = piece.canvas.getContext('2d');
+      if (!ctx) return true;
+      var dpr = global.devicePixelRatio || 1;
+      var x = util.clamp(Math.round(point.x * dpr), 0, piece.canvas.width - 1);
+      var y = util.clamp(Math.round(point.y * dpr), 0, piece.canvas.height - 1);
+      try {
+        return ctx.getImageData(x, y, 1, 1).data[3] > 24;
+      } catch (err) {
+        /* A browser that refuses the read (a tainted canvas) must not make the
+           piece unpickable; fall back to the plain rectangle. */
+        return true;
+      }
+    }
+
+    /**
+     * Which piece a press belongs to.
+     *
+     * A piece's canvas is a rectangle wider than its cell so the tabs fit
+     * inside it, and in the tray those rectangles overlap. Without this, a
+     * press on a visible tab could land on the transparent corner of whichever
+     * piece happens to be stacked above it and pick up the wrong piece - or,
+     * on the board, a piece the child cannot even see there. The press goes to
+     * the topmost piece with paint under the finger instead.
+     */
+    function pieceAt(clientX, clientY) {
+      var rect = stage.getBoundingClientRect();
+      var x = clientX - rect.left;
+      var y = clientY - rect.top;
+      var found = null;
+      /* `pieces` is in DOM order, so the last match is the topmost one. */
+      pieces.forEach(function (piece) {
+        /* A piece already home cannot be picked up, and one under the other
+           hand is drawn at a scale toCanvasPoint does not account for. */
+        if (piece.placed || piece === draggingPiece) return;
+        var point = toCanvasPoint(piece, x, y);
+        if (point && isPaintedAt(piece, point)) found = piece;
+      });
+      return found;
     }
 
     function flashRejected(piece) {
@@ -301,7 +589,10 @@
     }
 
     function onPointerDown(ev, piece) {
-      if (finished || piece.placed) return;
+      if (finished) return;
+      var pressed = pieceAt(ev.clientX, ev.clientY);
+      if (pressed) piece = pressed;
+      if (piece.placed) return;
       var origin = { left: piece.left, top: piece.top };
 
       var started = KP.drag.begin(ev, piece.node, {
