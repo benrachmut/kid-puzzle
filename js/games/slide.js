@@ -26,11 +26,36 @@
     { cols: 4, rows: 4, scene: 'space' }
   ];
 
-  var TILE_PIXELS = 180;
+  /* A tile is scaled by CSS, so it is painted for the size it is actually being
+     shown at, in device pixels. The floor is the smallest worth painting at
+     all; the ceiling is a memory bound - a 4x4 keeps fifteen of these - set
+     where a board filling a 2x laptop screen stops gaining much from more. */
+  var MIN_TILE_PIXELS = 180;
+  var MAX_TILE_PIXELS = 512;
   var SHUFFLE_MOVES = 200;
   /* How long after a pointer gesture the click the browser synthesises from it
      may still arrive. */
   var COMPAT_CLICK_MS = 700;
+
+  /** The backing-store side a tile shown at `cell` CSS pixels wants. */
+  function tilePixelsFor(cell) {
+    var dpr = global.devicePixelRatio || 1;
+    return Math.round(util.clamp(cell * dpr, MIN_TILE_PIXELS, MAX_TILE_PIXELS));
+  }
+
+  /**
+   * A first guess at that, before there is a board to measure.
+   *
+   * Whichever way the phone is turned the board is capped by the shorter side
+   * of the screen - its width in portrait, its height in landscape - so this is
+   * the right answer for a phone and relayout() corrects it anywhere else. At
+   * the old fixed 180 a full-width tile on a 3x phone was drawn at half the
+   * resolution the screen was showing it at, and the picture went visibly soft.
+   */
+  function firstGuessTilePixels(cols, rows) {
+    var shortSide = Math.min(global.innerWidth || 0, global.innerHeight || 0);
+    return tilePixelsFor(shortSide / Math.max(cols, rows));
+  }
 
   function create(mount, levelIndex, callbacks) {
     var level = LEVELS[util.clamp(levelIndex, 0, LEVELS.length - 1)];
@@ -38,6 +63,7 @@
     var cols = level.cols;
     var rows = level.rows;
     var size = cols * rows;
+    var tilePx = firstGuessTilePixels(cols, rows);
 
     var root = util.el('div', 'board');
     var hud = util.el('div', 'hud', { 'data-i18n-aria': 'memory.moves' });
@@ -65,19 +91,38 @@
 
     for (var i = 0; i < size; i++) board.push(i === gap ? null : i);
 
-    /** Pre-renders each tile once; CSS scales them, so resizing needs no redraw. */
     function buildTiles() {
-      for (var id = 0; id < size - 1; id++) {
-        var canvas = util.el('canvas');
-        canvas.width = TILE_PIXELS;
-        canvas.height = TILE_PIXELS;
+      for (var id = 0; id < size - 1; id++) tileCanvases.push(util.el('canvas'));
+      paintTiles();
+    }
+
+    /** Paints every tile's slice of the picture at the current `tilePx`. */
+    function paintTiles() {
+      tileCanvases.forEach(function (canvas, id) {
+        /* Assigning the width also resets the context, including its transform,
+           which is what makes a repaint safe to run over a painted canvas. */
+        canvas.width = tilePx;
+        canvas.height = tilePx;
         var ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.translate(-(id % cols) * TILE_PIXELS, -Math.floor(id / cols) * TILE_PIXELS);
-          paintPicture(ctx, TILE_PIXELS * cols, TILE_PIXELS * rows);
-        }
-        tileCanvases.push(canvas);
-      }
+        if (!ctx) return;
+        ctx.translate(-(id % cols) * tilePx, -Math.floor(id / cols) * tilePx);
+        paintPicture(ctx, tilePx * cols, tilePx * rows);
+      });
+    }
+
+    /**
+     * Repaints the tiles when the board has outgrown the resolution they were
+     * painted at - a window opened wider, a phone turned on its side.
+     *
+     * Scaling what is already painted is the cheap common case and stays the
+     * common case: this only ever fires while the board is growing, so it runs
+     * a handful of times in a level at most, and never on the way down.
+     */
+    function growTilesTo(cell) {
+      var needed = tilePixelsFor(cell);
+      if (needed <= tilePx) return;
+      tilePx = needed;
+      paintTiles();
     }
 
     function neighbours(position) {
@@ -267,6 +312,7 @@
       if (!(cell > 0)) return;
       grid.style.width = Math.floor(cell * cols + paddingX + gapX) + 'px';
       grid.style.height = Math.floor(cell * rows + paddingY + gapY) + 'px';
+      growTilesTo(cell);
     }
 
     function onTileMove(position) {

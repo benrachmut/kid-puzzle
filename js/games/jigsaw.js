@@ -40,10 +40,19 @@
   ];
 
   var PAD = 12;
-  /* Share of the stage the board may take: of the height when the tray goes
-     underneath it, of the width when the tray goes beside it. */
+  /* A phone has no pixels to spare around the board, and the margin is the
+     cheapest of them to give back: 6px still reads as a frame at arm's length. */
+  var PHONE_PAD = 6;
+  /* Share of the stage height the board may take when the tray goes underneath
+     it, which on a wide window is what caps the board. */
   var BOARD_HEIGHT_SHARE = 0.6;
-  var BOARD_WIDTH_SHARE = 0.6;
+  /* The board's share on a phone - of the height in portrait, of the width in
+     the side-by-side layout, which is phone-landscape only. There the board is
+     capped by the screen itself long before 0.68 binds, so this share only
+     stops the cap from taking room the board could have used and leaving it to
+     a tray that did not need it. What is left after the board is still the
+     whole tray, and fitTray scales the pieces into it. */
+  var PHONE_BOARD_SHARE = 0.68;
   /** A drop counts as "close enough" within this fraction of a piece. */
   var SNAP_FACTOR = 0.7;
   /** Side of the hold-to-peek button, mirroring .jig-peek in the stylesheet.
@@ -438,30 +447,36 @@
 
       var aspect = cols / rows;
       var beside = mediaMatches(PHONE_LANDSCAPE);
-      var maxW = beside ? W * BOARD_WIDTH_SHARE - PAD * 2 : W - PAD * 2;
-      var maxH = beside ? H - PAD * 2 : H * BOARD_HEIGHT_SHARE - PAD;
+      var portrait = mediaMatches(PHONE_PORTRAIT);
+      var phone = beside || portrait;
+      var pad = phone ? PHONE_PAD : PAD;
+      var heightShare = phone ? PHONE_BOARD_SHARE : BOARD_HEIGHT_SHARE;
+      /* Only the phone-landscape layout puts the tray beside the board, so the
+         width is only ever shared at the phone's own share. */
+      var maxW = beside ? W * PHONE_BOARD_SHARE - pad * 2 : W - pad * 2;
+      var maxH = beside ? H - pad * 2 : H * heightShare - pad;
       geo.boardW = Math.max(40, Math.min(maxW, maxH * aspect));
       geo.boardH = geo.boardW / aspect;
       geo.pieceW = geo.boardW / cols;
       geo.pieceH = geo.boardH / rows;
 
       if (beside) {
-        geo.boardX = PAD;
-        geo.boardY = Math.max(PAD, (H - geo.boardH) / 2);
-        geo.trayX = geo.boardX + geo.boardW + PAD;
-        geo.trayTop = PAD;
-        geo.trayW = Math.max(geo.pieceW, W - geo.trayX - PAD);
-        geo.trayH = Math.max(geo.pieceH, H - PAD * 2);
+        geo.boardX = pad;
+        geo.boardY = Math.max(pad, (H - geo.boardH) / 2);
+        geo.trayX = geo.boardX + geo.boardW + pad;
+        geo.trayTop = pad;
+        geo.trayW = Math.max(geo.pieceW, W - geo.trayX - pad);
+        geo.trayH = Math.max(geo.pieceH, H - pad * 2);
       } else {
         geo.boardX = (W - geo.boardW) / 2;
-        geo.boardY = PAD;
-        geo.trayX = PAD;
-        geo.trayTop = geo.boardY + geo.boardH + PAD;
-        geo.trayW = W - PAD * 2;
-        geo.trayH = Math.max(geo.pieceH, H - geo.trayTop - PAD);
+        geo.boardY = pad;
+        geo.trayX = pad;
+        geo.trayTop = geo.boardY + geo.boardH + pad;
+        geo.trayW = W - pad * 2;
+        geo.trayH = Math.max(geo.pieceH, H - geo.trayTop - pad);
       }
 
-      if (beside || mediaMatches(PHONE_PORTRAIT)) {
+      if (phone) {
         var fitted = fitTray(count, geo.trayW, geo.trayH, geo.pieceW, geo.pieceH);
         geo.trayRows = fitted.rows;
         geo.trayCols = fitted.cols;

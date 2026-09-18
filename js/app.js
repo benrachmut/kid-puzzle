@@ -118,6 +118,12 @@
       dom.screens[key].classList.toggle('is-active', key === name);
     });
     dom.back.hidden = name === 'home';
+    /* While a board is up the shell shrinks to a slim toolbar so the stage gets
+       the rest of the phone (see .is-playing in the stylesheet). The flag lives
+       on the body because the toolbar it shrinks sits outside the screen, and
+       it is set here - before the board is mounted - so the game measures the
+       stage it is actually going to have. */
+    document.body.classList.toggle('is-playing', name === 'game');
   }
 
   /**

@@ -983,6 +983,52 @@ body {
   }
 }
 
+/* ---------- the board takes the phone ---------- */
+
+/* On a phone the chrome around a board was costing it a fifth of the screen:
+   page padding on three sides, a top bar sized for a desktop, and the gaps
+   between them - about 100px of a 640px-tall phone, before the board had drawn
+   anything. While a board is up, and only then, the shell shrinks to a slim
+   toolbar and hands the rest to the stage. The menus keep their roomier chrome,
+   which is why this hangs off a state class rather than the media query alone.
+
+   Nothing here drops a target below 48px: --tap *is* the target size, and the
+   toolbar is nothing but targets. */
+@media (max-width: 720px), (max-height: 520px) {
+  .is-playing { --tap: 48px; }
+
+  .is-playing .app {
+    gap: 4px;
+    padding: 4px 4px 6px;
+  }
+
+  .is-playing .topbar { gap: 6px; }
+  .is-playing .topbar__title { font-size: 17px; }
+  .is-playing .btn--icon { padding: 11px; }
+
+  /* Padding alone would leave this button shorter than the icon buttons beside
+     it, so the finger size is a floor here rather than a fixed height. */
+  .is-playing .btn--lang {
+    min-height: var(--tap);
+    padding: 6px 14px;
+    font-size: 15px;
+  }
+
+  .is-playing .hud { padding: 2px 14px; }
+
+  /* The board's own frame, for the same reason: every pixel it does not spend
+     on padding is a pixel the tiles are drawn at. */
+  .is-playing .board {
+    padding: 4px;
+    gap: 4px;
+  }
+
+  .is-playing .slide {
+    gap: 3px;
+    padding: 4px;
+  }
+}
+
 /* Nine pattern cells have to stay one readable row on a 360px screen, so those
    cells may drop below a finger size - they are not tappable. The three
    choices are, so they keep a finger-sized floor in either orientation. */

@@ -84,6 +84,11 @@ On a phone the board keeps every browser gesture to itself, so a drag can never
 turn into a page scroll, a pull-to-refresh, a zoom or a "save image" menu. The
 menus still scroll when they have more than a screenful.
 
+While a board is up, the shell shrinks to a slim toolbar - smaller padding, a
+48px bar - and the board takes everything else: the full width in portrait with
+the jigsaw tray underneath it, the full height in landscape with the tray
+beside it. The menus keep their roomier chrome.
+
 ## Privacy
 
 Nothing is collected, sent or logged. There are no analytics, no fonts or images
